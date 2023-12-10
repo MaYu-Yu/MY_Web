@@ -23,7 +23,7 @@ def init_db():
             CREATE TABLE IF NOT EXISTS playlists (
                 id TEXT NOT NULL PRIMARY KEY,
                 title TEXT NOT NULL,
-                last_updated date,
+                last_updated DATE,
                 track_flag INTEGER,
                 channel_id TEXT,
                 FOREIGN KEY (channel_id) REFERENCES channels (id)
@@ -35,6 +35,7 @@ def init_db():
             CREATE TABLE IF NOT EXISTS videos (
                 video_id TEXT NOT NULL,
                 url TEXT NOT NULL,
+                is_download_flag INTEGER,
                 playlists_id TEXT,
                 FOREIGN KEY (playlists_id) REFERENCES playlists (id)
             )
@@ -209,8 +210,8 @@ def index():
                         existing_video = cursor.fetchone()
 
                         if not existing_video:
-                            cursor.execute('INSERT INTO videos (video_id, url, playlists_id) VALUES (?, ?, ?)',
-                                            (video_id, video_url, list_id))
+                            cursor.execute('INSERT INTO videos (video_id, url, is_download_flag, playlists_id) VALUES (?, ?, ?, ?)',
+                                            (video_id, video_url, 0,list_id))
                             conn.commit()
     channels = get_data_from_db()
     return render_template('index.html', error_message=error_message, channels=channels)
