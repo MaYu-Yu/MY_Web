@@ -6,10 +6,10 @@
 {% block content %}
     <h1 class="mb-4">YouTube Playlist Tracker</h1>
 
-    <form method="POST" id="searchForm">
+    <form method="POST" id="InputForm">
         <div class="mb-3">
             <label for="url" class="form-label">YouTube URL:</label>
-            <input type="text" class="form-control" id="url" name="url" required>
+            <input type="text" class="form-control" id="url" name="url">
         </div>
         <button type="button" class="btn btn-primary" onclick="showLoading()">Add</button>
     </form>
@@ -19,9 +19,9 @@
         <div class="spinner-border text-primary" role="status">
             <span class="visually-hidden">Loading...</span>
         </div>
-        <strong class="mt-2">同步中...請不要關閉視窗</p></strong>
+        <strong class="mt-2 text-danger">處理中...請不要做其它動作</strong>
     </div>
-
+    
     <!-- Display DataBase -->
     <div class="mt-5">
         <h2>YouTube's Tracker</h2>
@@ -51,6 +51,13 @@
                             <button type="submit" class="btn btn-danger">取消追蹤全部</button>
                         </form>
                     </div>
+                    <div class="col-auto">
+                        <!-- Add "Delete Channel" button with confirmation -->
+                        <form method="POST" action="/delete_channel" class="d-flex align-items-center" onsubmit="return confirm('確定要刪除這個 Channel 嗎？');">
+                            <input type="hidden" name="channelId" value="{{ channel['id'] }}">
+                            <button type="submit" class="btn btn-warning">刪除</button>
+                        </form>
+                    </div>
                 </div>
                 
                 <div class="collapse show" id="playlist{{ loop.index }}">
@@ -62,23 +69,6 @@
                                 <form method="POST" action="/toggle_track_flag">
                                     <input type="hidden" name="playlistId" value="{{ playlist['id'] }}">
                                     <input type="hidden" name="currentFlag" value="{{ playlist['track_flag'] }}">
-                                    {% if playlist['track_flag'] == 1 %}
-                                        {% if playlist['last_synced'] is not none %}
-                                            {% if playlist['last_updated'] <= playlist['last_synced'] %}
-                                            <span style="color: green;">已同步</span>
-                                            {% else %}
-                                                <span style="color: red;">Last Updated: {{ playlist['last_updated'] }}</span>
-                                            {% endif %}
-                                        {% else %}
-                                            <span style="color: red;">Last Updated: {{ playlist['last_updated'] }}</span>
-                                        {% endif %}
-                                    {% else %}  
-                                        <span>Last Updated: {{ playlist['last_updated'] }}</span>
-                                    {% endif %}
-                                
-                                
-                                                        
-                                                                                                
                                     <button type="submit" class="btn {% if playlist['track_flag'] == 1 %}btn-primary{% else %}btn-secondary{% endif %}">
                                         {% if playlist['track_flag'] == 1 %}
                                             已追蹤
@@ -96,7 +86,6 @@
     </div>
     
 </div>
-
 <script>
     // 恢復卡片折疊狀態
 function restoreCollapseState() {

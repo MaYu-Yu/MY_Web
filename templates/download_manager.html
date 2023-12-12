@@ -7,10 +7,10 @@
     <h1 class="mb-4">Download Manager</h1>
 
     <!-- Download Folder Input -->
-    <form id="downloadForm" method="POST" action="/download_manager">
+    <form id="InputForm" method="POST" action="/download_manager">
         <div class="mb-3">
-            <label for="downloadFolder" class="form-label">Enter Download Folder Path:</label>
-            <input type="text" class="form-control" id="downloadFolder" name="download_folder" required>
+            <label for="folderPath" class="form-label">Enter Download Folder Path:</label>
+            <input type="text" class="form-control" id="folderPath" name="folder_path">
         </div>
 
         <!-- Audio Only Checkbox -->
@@ -20,13 +20,14 @@
         </div>
 
         <!-- Sync and Download Button -->
-        <button type="submit" class="btn btn-primary">Sync and Download</button>
+        <button type="submit" class="btn btn-primary" onclick="showLoading()">Sync and Download</button>
     </form>
     <!-- Loading Spinner -->
     <div id="loading" class="d-none">
         <div class="spinner-border text-primary" role="status">
             <span class="visually-hidden">Loading...</span>
         </div>
-    <strong class="mt-2">同步中...請不要關閉視窗</p></strong>
+        <strong class="mt-2 text-danger">下載中...請不要做其它動作</strong>
     </div>
+    
 {% endblock %}

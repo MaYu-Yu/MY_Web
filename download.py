@@ -3,7 +3,7 @@ import re
 import random
 import ffmpeg
 from pathlib import Path
-from pytube import YouTube
+from pytube import YouTube, Playlist
 import urllib.request
 from mutagen.mp4 import MP4, MP4Cover
 from mutagen.id3 import ID3, APIC, TIT2, TPE1, TALB, ID3NoHeaderError
@@ -144,7 +144,9 @@ class YouTubeDownloader:
 
         for thread in threads:
             thread.join()
-
+    def download_from_playlist_id(self, list_id, output_folder, audio_only=True):
+        pl = Playlist("https://www.youtube.com/playlist?list=" + list_id)
+        self.download(self, pl.video_urls, output_folder, audio_only)
 if __name__ == "__main__":
     downloader = YouTubeDownloader()
     url = ["https://www.youtube.com/watch?v=HSTYgU5SH4s&list=PL1NeGg1woXqlISJkxjgwHKgB8LmR7tk92&index=2"]
