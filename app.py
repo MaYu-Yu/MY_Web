@@ -1,12 +1,14 @@
 import sqlite3
+from datetime import datetime, timedelta
 from flask import Flask, render_template, request, redirect, url_for
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.chrome.options import Options
 from pytube import YouTube, Playlist,Channel
-import re
+import re, os
 
+from download import YouTubeDownloader
 app = Flask(__name__)
 
 def init_db():
@@ -26,6 +28,7 @@ def init_db():
                 last_updated DATE,
                 track_flag INTEGER,
                 channel_id TEXT,
+                last_synced DATE,
                 FOREIGN KEY (channel_id) REFERENCES channels (id)
             )
         ''')
@@ -130,13 +133,56 @@ def get_data_from_db():
             # 獲取該 channel 的所有 playlists
             cursor.execute('SELECT * FROM playlists WHERE channel_id = ?', (channel_row[0],))
             for playlist_row in cursor.fetchall():
-                playlists = {'id': playlist_row[0],'title': playlist_row[1], 'last_updated': playlist_row[2], 'track_flag': playlist_row[3]}
+                playlists = {'id': playlist_row[0],'title': playlist_row[1], 'last_updated': playlist_row[2], 'track_flag': playlist_row[3], 'channel_id': playlist_row[4], 'last_synced': playlist_row[5]}
                 channel['playlists'].append(playlists)
-
             channels.append(channel)
 
     return channels
 
+# 追蹤全部
+@app.route('/track_all', methods=['POST'])
+def track_all():
+    if request.method == 'POST':
+        channel_id = request.form['channelId']
+
+        # 在這裡加入處理邏輯，例如遍歷該頻道的所有播放清單，然後進行相應的處理
+        with sqlite3.connect('youtube_data.db') as conn:
+            cursor = conn.cursor()
+            
+            # 取得該頻道的所有播放清單
+            cursor.execute('SELECT id FROM playlists WHERE channel_id = ?', (channel_id,))
+            playlist_ids = [row[0] for row in cursor.fetchall()]
+
+            # 對每個播放清單進行處理，例如將其標記為已追蹤
+            for playlist_id in playlist_ids:
+                cursor.execute('UPDATE playlists SET track_flag = 1 WHERE id = ?', (playlist_id,))
+                conn.commit()
+
+    # 重定向到主頁面
+    return redirect(url_for('tracker_manager'))
+
+# 取消追蹤全部
+@app.route('/untrack_all', methods=['POST'])
+def untrack_all():
+    if request.method == 'POST':
+        channel_id = request.form['channelId']
+
+        # 在這裡加入處理邏輯，例如遍歷該頻道的所有播放清單，然後進行相應的處理
+        with sqlite3.connect('youtube_data.db') as conn:
+            cursor = conn.cursor()
+            
+            # 取得該頻道的所有播放清單
+            cursor.execute('SELECT id FROM playlists WHERE channel_id = ?', (channel_id,))
+            playlist_ids = [row[0] for row in cursor.fetchall()]
+
+            # 對每個播放清單進行處理，例如將其標記為未追蹤
+            for playlist_id in playlist_ids:
+                cursor.execute('UPDATE playlists SET track_flag = 0 WHERE id = ?', (playlist_id,))
+                conn.commit()
+
+    # 重定向到主頁面
+    return redirect(url_for('tracker_manager'))
+# 追蹤反轉
 @app.route('/toggle_track_flag', methods=['POST'])
 def toggle_track_flag():
     if request.method == 'POST':
@@ -156,13 +202,11 @@ def toggle_track_flag():
                 conn.commit()
 
     # 重定向到主页
-    return redirect(url_for('index'))
-
-@app.route('/', methods=['GET', 'POST'])
-def index():
+    return redirect(url_for('tracker_manager'))
+@app.route('/tracker_manager', methods=['GET', 'POST'])
+def tracker_manager():
     error_message = None
-    channels = []
-
+    
     if request.method == 'POST':
         url = request.form['url']
         channel_id, channel_name, playlist_id_list = get_channel_info(url)
@@ -190,14 +234,17 @@ def index():
                     if not existing_playlist:
                         try:
                             pytube_playlist = Playlist("https://www.youtube.com/playlist?list=" + list_id)
-                            cursor.execute('INSERT INTO playlists (id, title, last_updated, track_flag, channel_id) VALUES (?, ?, ?, ?, ?)',
-                                            (list_id, pytube_playlist.title, pytube_playlist.last_updated, 0, channel_id))
+                            if isinstance(pytube_playlist.last_updated, str):
+                                pytube_playlist.last_updated = (datetime.now() - timedelta(days=int(pytube_playlist.last_updated))).date()
+                            cursor.execute('INSERT INTO playlists (id, title, last_updated, track_flag, channel_id, last_synced) VALUES (?, ?, ?, ?, ?, ?)',
+                                            (list_id, pytube_playlist.title, pytube_playlist.last_updated, 0, channel_id, None))
                             conn.commit()
                         # pytube_playlist.last_updated 如果年齡、會員限制會出錯
-                        except Exception:
+                        except Exception as e:
+                            print(e)
                             print(f"playlists's id:{list_id} has some problem.")
                             cursor.execute('INSERT INTO playlists (id, title, last_updated, track_flag, channel_id) VALUES (?, ?, ?, ?, ?)',
-                                (list_id, pytube_playlist.title, None, 0, channel_id))
+                                (list_id, pytube_playlist.title, (datetime.now() - timedelta(days=int(1))).date(), 0, channel_id))
                             continue
                     else:
                         pytube_playlist = Playlist("https://www.youtube.com/playlist?list=" + list_id)            
@@ -214,7 +261,77 @@ def index():
                                             (video_id, video_url, 0,list_id))
                             conn.commit()
     channels = get_data_from_db()
-    return render_template('index.html', error_message=error_message, channels=channels)
+    return render_template('tracker_manager.html', error_message=error_message, channels=channels)
+
+# 下載管理頁面
+@app.route('/download_manager', methods=['GET', 'POST'])
+def download_manager():
+    error_message = None
+    if request.method == 'POST':
+        # 獲取用戶選擇的下載目錄
+        download_folder = request.form.get('download_folder')
+        audio_only = request.form.get('audio_only') == 'on'
+        error_message = sync_and_download(download_folder, audio_only)
+    channels = get_data_from_db()
+    return render_template('download_manager.html', error_message=error_message, channels=channels)
+
+@app.route('/sync_and_download', methods=['GET', 'POST'])
+def sync_and_download(download_folder, audio_only):
+    # 檢查下載目錄是否存在
+    error_message = ''
+    if not os.path.exists(download_folder):
+        error_message = f"Download folder '{download_folder}' does not exist."
+    else:
+        try:
+            with sqlite3.connect('youtube_data.db') as conn:
+                cursor = conn.cursor()
+
+                # 獲取所有需要同步的播放清單
+                cursor.execute('SELECT * FROM playlists WHERE track_flag = 1 AND (last_synced <= last_updated OR last_synced IS NULL);')
+                playlists_to_download = cursor.fetchall()
+                # 初始化下載器
+                downloader = YouTubeDownloader()
+                for playlist_info in playlists_to_download:
+                    playlist_id, title, last_updated, track_flag, channel_id, last_synced = playlist_info
+                    # 取得channel_name
+                    cursor.execute('SELECT name FROM channels WHERE id = ?;', (channel_id,))
+                    channel_name = cursor.fetchone()[0]
+                    # 取得下載目錄的路徑
+                    channel_folder_path = os.path.join(download_folder, channel_name) 
+                    playlist_folder_path = os.path.join(channel_folder_path, title) 
+
+                    # 建立 channel 資料夾
+                    os.makedirs(channel_folder_path, exist_ok=True)
+
+                    # 建立 playlist 資料夾
+                    os.makedirs(playlist_folder_path, exist_ok=True)
+
+                    # 取得播放清單的所有未下載影片
+                    cursor.execute('SELECT * FROM videos WHERE playlists_id = ? AND is_download_flag = 0', (playlist_id,))
+                    videos_to_download = cursor.fetchall()
+
+                    # 下載每個影片
+                    for video_info in videos_to_download:
+                        video_id, video_url, is_download_flag, _ = video_info
+
+                        # 下載影片，這裡假設您的下載方法是正確的
+                        downloader.download([video_url], playlist_folder_path, audio_only) 
+
+                        # 更新 is_download_flag
+                        cursor.execute('UPDATE videos SET is_download_flag = 1 WHERE video_id = ? AND playlists_id = ?', (video_id, playlist_id))
+                        conn.commit()
+
+                    # 更新最後同步日期
+                    cursor.execute('UPDATE playlists SET last_synced = ? WHERE id = ?', (datetime.now(), playlist_id))
+                    conn.commit()
+                    
+        except Exception as e:
+            error_message = e
+    return error_message
+@app.route('/', methods=['GET', 'POST'])
+def index():
+    error_message = None
+    return render_template('index.html', error_message=error_message)
 if __name__ == "__main__":
     init_db()
     app.run(debug=True)

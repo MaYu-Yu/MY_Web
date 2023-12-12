@@ -1,0 +1,158 @@
+<!-- tracker_manager.html -->
+{% extends 'base.html' %}
+
+{% block title %}YouTube Playlist Tracker{% endblock %}
+
+{% block content %}
+    <h1 class="mb-4">YouTube Playlist Tracker</h1>
+
+    <form method="POST" id="searchForm">
+        <div class="mb-3">
+            <label for="url" class="form-label">YouTube URL:</label>
+            <input type="text" class="form-control" id="url" name="url" required>
+        </div>
+        <button type="button" class="btn btn-primary" onclick="showLoading()">Add</button>
+    </form>
+
+    <!-- Loading Spinner -->
+    <div id="loading" class="d-none">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <strong class="mt-2">同步中...請不要關閉視窗</p></strong>
+    </div>
+
+    <!-- Display DataBase -->
+    <div class="mt-5">
+        <h2>YouTube's Tracker</h2>
+    
+        {% for channel in channels %}
+            <div class="card mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center position-relative" data-bs-toggle="collapse" data-bs-target="#playlist{{ loop.index }}" aria-expanded="true" aria-controls="playlist{{ loop.index }}">
+                    <a href="{% if channel["id"].startswith("@") %}{{"https://www.youtube.com/"+channel["id"]}}{% else %}{{ "https://www.youtube.com/channel/"+channel["id"]}}{% endif %}" style="flex: 1;" target="_blank">
+                        <strong style="font-size: 2em;font-weight: bold;">{{ channel['name'] }}</strong>
+                    </a>
+                    <div class="col-auto">
+                        <button class="btn btn-link" type="button">
+                            <i class="bi bi-list"></i>
+                        </button>
+                    </div>
+                    <div class="col-auto">
+                        <!-- Add "Track All" button -->
+                        <form method="POST" action="/track_all" class="d-flex align-items-center">
+                            <input type="hidden" name="channelId" value="{{ channel['id'] }}">
+                            <button type="submit" class="btn btn-success">追蹤全部</button>
+                        </form>
+                    </div>
+                    <div class="col-auto">
+                        <!-- Add "Untrack All" button -->
+                        <form method="POST" action="/untrack_all" class="d-flex align-items-center">
+                            <input type="hidden" name="channelId" value="{{ channel['id'] }}">
+                            <button type="submit" class="btn btn-danger">取消追蹤全部</button>
+                        </form>
+                    </div>
+                </div>
+                
+                <div class="collapse show" id="playlist{{ loop.index }}">
+                    <ul class="list-group list-group-flush">
+                        {% for playlist in channel['playlists'] %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <strong><a href='{{"https://www.youtube.com/playlist?list="+playlist["id"]}}' target="_blank">{{ playlist['title'] }}</a></strong>
+                                <!-- Add track_flag button -->
+                                <form method="POST" action="/toggle_track_flag">
+                                    <input type="hidden" name="playlistId" value="{{ playlist['id'] }}">
+                                    <input type="hidden" name="currentFlag" value="{{ playlist['track_flag'] }}">
+                                    {% if playlist['track_flag'] == 1 %}
+                                        {% if playlist['last_synced'] is not none %}
+                                            {% if playlist['last_updated'] <= playlist['last_synced'] %}
+                                            <span style="color: green;">已同步</span>
+                                            {% else %}
+                                                <span style="color: red;">Last Updated: {{ playlist['last_updated'] }}</span>
+                                            {% endif %}
+                                        {% else %}
+                                            <span style="color: red;">Last Updated: {{ playlist['last_updated'] }}</span>
+                                        {% endif %}
+                                    {% else %}  
+                                        <span>Last Updated: {{ playlist['last_updated'] }}</span>
+                                    {% endif %}
+                                
+                                
+                                                        
+                                                                                                
+                                    <button type="submit" class="btn {% if playlist['track_flag'] == 1 %}btn-primary{% else %}btn-secondary{% endif %}">
+                                        {% if playlist['track_flag'] == 1 %}
+                                            已追蹤
+                                        {% else %}
+                                            未追蹤
+                                        {% endif %}
+                                    </button>                                    
+                                </form>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+    
+</div>
+
+<script>
+    // 恢復卡片折疊狀態
+function restoreCollapseState() {
+    document.querySelectorAll('[data-bs-toggle="collapse"]').forEach(function (element) {
+        var targetId = element.getAttribute('data-bs-target').substring(1);
+        var expanded = localStorage.getItem('collapseState_' + targetId);
+        if (expanded !== null) {
+            element.setAttribute('aria-expanded', expanded === 'true');
+            if (expanded === 'true') {
+                var collapse = new bootstrap.Collapse(element);
+                collapse.show();
+            }
+        }
+    });
+}
+
+    document.addEventListener('DOMContentLoaded', function () {
+        // 恢復滾輪位置
+        if (localStorage.getItem('scrollPosition')) {
+            window.scrollTo(0, localStorage.getItem('scrollPosition'));
+        }
+    
+        // 監聽滾動事件，保存滾輪位置到localStorage
+        window.addEventListener('scroll', function () {
+            localStorage.setItem('scrollPosition', window.scrollY);
+        });
+    
+        // 監聽卡片折疊事件，保存卡片折疊狀態到localStorage
+        document.querySelectorAll('[data-bs-toggle="collapse"]').forEach(function (element) {
+            element.addEventListener('click', function () {
+                var targetId = element.getAttribute('data-bs-target').substring(1);
+                var expanded = element.getAttribute('aria-expanded') === 'true';
+                localStorage.setItem('collapseState_' + targetId, expanded);
+            });
+        });
+    
+        // 恢復卡片折疊狀態
+        restoreCollapseState();
+    });
+    
+    // 恢復卡片折疊狀態
+    function restoreCollapseState() {
+        document.querySelectorAll('[data-bs-toggle="collapse"]').forEach(function (element) {
+            var targetId = element.getAttribute('data-bs-target').substring(1);
+            var expanded = localStorage.getItem('collapseState_' + targetId);
+            if (expanded !== null) {
+                element.setAttribute('aria-expanded', expanded === 'true');
+                var collapse = new bootstrap.Collapse(element);
+                if (expanded === 'true') {
+                    collapse.show();
+                } else {
+                    collapse.hide();
+                }
+            }
+        });
+    }
+    
+</script>
+{% endblock %}
