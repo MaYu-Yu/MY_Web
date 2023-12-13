@@ -20,11 +20,6 @@ class YouTubeDownloader:
             random.shuffle(temp)
             for i in temp:
                 yield str(i)
-                
-    def get_id_from_url(self, url):
-        video_id = self.get_video_ID(url)
-        playlist_id = self.get_playlist_ID(url)
-        return video_id, playlist_id
 
     def get_video_ID(self, url):
         youtube_regex = r"^(?:https?:\/\/)?(?:www\.)?(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))(?P<video_ID>(\w|-)[^&]+)(?:\S+)?$"
@@ -34,7 +29,6 @@ class YouTubeDownloader:
         else:
             # print("Not a YouTube's URL.")
             return None
-
     def get_playlist_ID(self, url):
         youtube_regex = r"[?&]list=(?P<list_ID>([^&]+))"
         sreMatch = re.search(youtube_regex, url)
@@ -43,10 +37,25 @@ class YouTubeDownloader:
         else:
             # print("Not a YouTube's PlayList URL.")
             return None
-    
+    def get_id_from_url(self, url):
+        video_id = self.get_video_ID(url)
+        playlist_id = self.get_playlist_ID(url)
+        return video_id, playlist_id
+
+    def get_video_info(self, url):
+        yt = YouTube(url)
+        img = Path("./temp/img/"+self.get_video_ID(url)+".jpg")
+        if not img.exists():
+            urllib.request.urlretrieve(yt.thumbnail_url, img)  # download img
+        info_dict ={
+            "title": yt.title, 
+            "thumbnail_path": str(img),
+            "author": yt.author,
+        }
+        return yt, info_dict
     def convert_to_mp3(self, input_path, output_path):
         try:
-            ffmpeg.input(input_path).output(output_path).run(overwrite_output=True)
+            ffmpeg.input(input_path).output(output_path, loglevel='error').run(overwrite_output=True)
         except ffmpeg.Error as e:
             os.remove(input_path)
             os.remove(output_path)
@@ -58,7 +67,7 @@ class YouTubeDownloader:
         try:
             audio = ffmpeg.input(audio_path)
             video = ffmpeg.input(video_path)
-            ffmpeg.output(audio, video, output_path, acodec='aac').run(overwrite_output=True)
+            ffmpeg.output(audio, video, output_path, acodec='aac', loglevel='error').run(overwrite_output=True)
         except ffmpeg.Error as e:
             os.remove(audio_path)
             os.remove(video_path)
@@ -103,16 +112,8 @@ class YouTubeDownloader:
     
     def download_thread(self, url, output_folder, audio_only, lock):
         try:
-            yt = YouTube(url)
             video_id, _ = self.get_id_from_url(url)
-            img = Path("./temp/img/"+video_id+".jpg")
-            if not img.exists():
-                urllib.request.urlretrieve(yt.thumbnail_url, img)  # download img
-            info_dict ={
-                "title": yt.title, 
-                "thumbnail_path": str(img),
-                "author": yt.author,
-            }
+            yt, info_dict = self.get_video_info(url)
             audio_stream = yt.streams.filter(mime_type="audio/mp4").last()
             audio_path = audio_stream.download(output_path="temp", filename_prefix=next(self.random_num), skip_existing=False)
             if audio_only:
@@ -151,6 +152,6 @@ if __name__ == "__main__":
     downloader = YouTubeDownloader()
     url = ["https://www.youtube.com/watch?v=HSTYgU5SH4s&list=PL1NeGg1woXqlISJkxjgwHKgB8LmR7tk92&index=2"]
     urls = ["https://www.youtube.com/watch?v=khplMpm4ctc&list=PLaxauk3chSWj6Lg0HZtQ8mhTeGRyopOl5", "https://www.youtube.com/watch?v=Igr6jQJEoNs&list=PLaxauk3chSWj6Lg0HZtQ8mhTeGRyopOl5&index=2"]
-    output_folder = 'E:\Program\Code\yt_auto_tracker\ot'
+    output_folder = r"C:\Users\eee12\Downloads"
     audio_only = True
     downloader.download(urls, output_folder, audio_only)

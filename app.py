@@ -5,6 +5,10 @@ from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+
 from pytube import YouTube, Playlist,Channel
 from pytube.exceptions import RegexMatchError
 
@@ -32,6 +36,14 @@ def init_db():
                 FOREIGN KEY (channel_id) REFERENCES channels (id)
             )
         ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS videos (
+                id TEXT NOT NULL PRIMARY KEY,
+                title TEXT NOT NULL,
+                owner_channel_id TEXT,
+                FOREIGN KEY (owner_channel_id) REFERENCES channels (id)
+            )
+        ''')
         
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS syncfolders (
@@ -41,84 +53,73 @@ def init_db():
         ''')
         conn.commit()
 
-def get_video_ID(url):
-    """Returns YouTube's video ID from the URL."""
-    youtube_regex = r"^(?:https?:\/\/)?(?:www\.)?(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))(?P<video_ID>(\w|-)[^&]+)(?:\S+)?$"
-    sreMatch = re.match(youtube_regex, url)
-    if sreMatch is not None:
-        return sreMatch.group("video_ID")
-    return None
-
-def get_playlist_ID(url):
-    """Returns YouTube's Playlist ID from the URL."""
-    youtube_regex = r"[?&]list=(?P<list_ID>([^&]+))"
-    sreMatch = re.search(youtube_regex, url)
-    if sreMatch is not None:
-        return sreMatch.group("list_ID")
-    return None
 
 def get_channel_info(url):
     try:
+        # 非youtube網址
         if not url.startswith("https://www.youtube.com/"):
             return None, None, []
-        channel_id = get_video_ID(url)
+        # 預設為影片網址
+        channel_id = DOWNLOADER.get_video_ID(url)
         if channel_id is None:    
-            channel_id = get_playlist_ID(url)
+            # 判斷是否為playlist網址
+            channel_id = DOWNLOADER.get_playlist_ID(url)
             if channel_id is not None:
                 channel_id = Playlist(url).owner_id
         else:
+            # 是影片網址
             channel_id = YouTube(url).channel_id
+        # 上方判斷完成的，直接獲取channel_name
         if channel_id is not None:
             url = "https://www.youtube.com/channel/" + channel_id
             channel_name = Channel(url).channel_name
             url += '/playlists'
+        else:
+            # 網址中間有@為新架構的youtube's id 將url設置到playlists位置'/playlists'來爬蟲
+            if '@' in url:
+                url = url.split('@')[0] + '@' + url.split('@')[1].split('/')[0] + '/playlists'
+        print(url)
+        # 從playlists抓取播放清單
+        chrome_path = "./chromedriver.exe"
+        chrome_options = Options()
+        chrome_options.add_argument('--headless')
+        chrome_options.add_argument('--disable-gpu')
+        chrome_options.add_argument('--disable-infobars')
+        chrome_options.add_argument('--disable-extensions')
+        service = ChromeService(chrome_path)
+        driver = webdriver.Chrome(service=service, options=chrome_options)
+        # 打開目標URL
+        driver.get(url)
+        # 使用顯性等待等待直到 channel_id_element 出現在頁面上
+        channel_id_element_locator = (By.CSS_SELECTOR, '.style-scope.ytd-c4-tabbed-header-renderer')
+        wait = WebDriverWait(driver, 10)
+        channel_id_element = wait.until(EC.presence_of_element_located(channel_id_element_locator))
+
+        # 獲取頁面源碼
+        page_source = driver.page_source
+
+        soup = BeautifulSoup(page_source, 'html.parser')
+
+        # 找到 channel_name 的 <yt-formatted-string>
+        channel_name_element = soup.find('yt-formatted-string', {'class': 'style-scope ytd-channel-name'})
+        channel_name = channel_name_element.get_text(strip=True) if channel_name_element else None
+
+        # 找到 channel_id 的 <yt-formatted-string>
+        channel_id_element = soup.find('yt-formatted-string', {'class': 'style-scope ytd-c4-tabbed-header-renderer'})
+        channel_id = channel_id_element.get_text(strip=True) if channel_id_element else None
+
+        # 找到所有的超連結
+        links = soup.find_all('a', href=True)
+
+        # 獲取播放清單的 id
+        playlist_id_list = [DOWNLOADER.get_playlist_ID(link['href']) for link in links if DOWNLOADER.get_playlist_ID(link['href']) is not None]
+
+        # 關閉瀏覽器
+        driver.quit()
+
+        return channel_id, channel_name, playlist_id_list
     except RegexMatchError:
         return None, None, []
-    
-    # 如果 URL 中間有 @，則保留 @ 後面到下一個 / 之間的文本，然後直接 + '/playlists'
-    if '@' in url:
-        url = url.split('@')[0] + '@' + url.split('@')[1].split('/')[0] + '/playlists'
-    print(url)
-    
-    # 設定ChromeDriver的路徑&init
-    chrome_path = "./chromedriver.exe"
-    chrome_options = Options()
-    chrome_options.add_argument('--headless')
-    service = ChromeService(chrome_path)
-    driver = webdriver.Chrome(service=service, options=chrome_options)
-    # 打開目標URL
-    driver.get(url)
-    # 等待頁面加載完成
-    driver.implicitly_wait(10)
-
-    # 獲取頁面源碼
-    page_source = driver.page_source
-
-    soup = BeautifulSoup(page_source, 'html.parser')
-
-    # 找到 channel_name 的 <yt-formatted-string>
-    channel_name_element = soup.find('yt-formatted-string', {'class': 'style-scope ytd-channel-name'})
-    channel_name = channel_name_element.get_text(strip=True) if channel_name_element else None
-
-    # 找到 channel_id 的 <yt-formatted-string>
-    channel_id_element = soup.find('yt-formatted-string', {'class': 'style-scope ytd-c4-tabbed-header-renderer'})
-    channel_id = channel_id_element.get_text(strip=True) if channel_id_element else None
-
-    # 找到所有的超連結
-    links = soup.find_all('a', href=True)
-
-    # 獲取播放清單的 id
-    playlist_id_list = []
-    for link in links:
-        href = link['href']
-        playlist_id = get_playlist_ID(href)
-        if playlist_id is not None:
-            playlist_id_list.append(playlist_id)
-
-    # 關閉瀏覽器
-    driver.quit()
-
-    return channel_id, channel_name, playlist_id_list
 
 def get_data_from_db():
     with sqlite3.connect('youtube_data.db') as conn:
@@ -239,7 +240,6 @@ def tracker_manager():
                                             (list_id, pytube_playlist.title, 0, channel_id))
                             conn.commit()
     channels = get_data_from_db()
-    print(error_message)
     return render_template('tracker_manager.html', error_message=error_message, channels=channels)
 
 # 下載管理頁面
@@ -273,8 +273,7 @@ def sync_and_download(folder_path, audio_only):
             # 獲取所有需要同步的播放清單
             cursor.execute('SELECT * FROM playlists WHERE track_flag = 1;')
             playlists_to_download = cursor.fetchall()
-            # 初始化下載器
-            downloader = YouTubeDownloader()
+
             for playlist_info in playlists_to_download:
                 playlist_id, title, track_flag, channel_id = playlist_info
                 # 取得channel_name
@@ -296,18 +295,20 @@ def sync_and_download(folder_path, audio_only):
                 existing_folder_path = cursor.fetchone()
                 if not existing_folder_path:
                     # 資料庫中不存在該 folder_path，將它加入資料庫
-                    cursor.execute('INSERT INTO syncfolders (folder_path, sync_date) VALUES (?, ?);', (folder_path, None))
+                    cursor.execute('INSERT INTO syncfolders (folder_path, sync_date) VALUES (?, ?);', (folder_path, sync_date))
                     conn.commit()
                 else:
                     # 取得sync_date
                     cursor.execute('SELECT sync_date FROM syncfolders WHERE folder_path = ?;', (folder_path,))
                     sync_date = cursor.fetchone()[0]
+                    if sync_date != None:
+                        sync_date = datetime.strptime(cursor.fetchone()[0], "%Y-%m-%d %H:%M:%S.%f")
                     
                 pytube_playlist = Playlist("https://www.youtube.com/playlist?list=" + playlist_id)
                 for url in pytube_playlist.video_urls:
                     # 下載sync_date日期前的影片
                     if sync_date is None or (sync_date <= YouTube(url).publish_date):
-                        downloader.download([url], playlist_folder_path, audio_only) 
+                        DOWNLOADER.download([url], playlist_folder_path, audio_only) 
                 # 更新最後同步日期
                 cursor.execute('UPDATE syncfolders SET sync_date = ? WHERE folder_path = ?', (datetime.now(), folder_path))
                 conn.commit()
@@ -338,5 +339,7 @@ def index():
     error_message = None
     return render_template('index.html', error_message=error_message)
 if __name__ == "__main__":
+    # 初始化下載器
+    DOWNLOADER = YouTubeDownloader()
     init_db()
     app.run(debug=True)

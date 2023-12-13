@@ -12,10 +12,18 @@
 </head>
 <body>
     {% if error_message %}
-        <div class="alert alert-danger" role="alert">
+        <div class="alert alert-danger" role="alert" id="error-message">
             {{ error_message }}
         </div>
+
+        <script>
+            // 3 秒後隱藏錯誤訊息
+            setTimeout(function() {
+                document.getElementById('error-message').style.display = 'none';
+            }, 3000);
+        </script>
     {% endif %}
+
 <div class="container mt-5">
     {% block content %}{% endblock %}
 </div>
