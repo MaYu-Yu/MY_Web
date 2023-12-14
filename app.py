@@ -36,20 +36,17 @@ def init_db():
                 FOREIGN KEY (channel_id) REFERENCES channels (id)
             )
         ''')
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS videos (
-                id TEXT NOT NULL PRIMARY KEY,
-                title TEXT NOT NULL,
-                owner_channel_id TEXT,
-                FOREIGN KEY (owner_channel_id) REFERENCES channels (id)
-            )
-        ''')
         
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS syncfolders (
-                folder_path TEXT NOT NULL PRIMARY KEY,
-                sync_date DATETIME
-            )
+                folder_path TEXT NOT NULL,
+                channel_id TEXT NOT NULL,
+                playlist_id TEXT NOT NULL,
+                sync_date DATETIME,
+                PRIMARY KEY (folder_path, channel_id, playlist_id),
+                FOREIGN KEY (channel_id) REFERENCES channels (id),
+                FOREIGN KEY (playlist_id) REFERENCES playlists (id)
+            );
         ''')
         conn.commit()
 
@@ -268,50 +265,46 @@ def sync_and_download(folder_path, audio_only):
         error_message = f"Download folder '{folder_path}' does not exist."
     else:
         with sqlite3.connect('youtube_data.db') as conn:
+            synced_list = [] # 已同步error_message's list
             cursor = conn.cursor()
-
+            
             # 獲取所有需要同步的播放清單
             cursor.execute('SELECT * FROM playlists WHERE track_flag = 1;')
             playlists_to_download = cursor.fetchall()
-
+                
             for playlist_info in playlists_to_download:
                 playlist_id, title, track_flag, channel_id = playlist_info
                 # 取得channel_name
                 cursor.execute('SELECT name FROM channels WHERE id = ?;', (channel_id,))
                 channel_name = cursor.fetchone()[0]
+                
+                # 去除非法字符
+                channel_name = re.sub(r'[\\/:"*?<>|]', '', channel_name)
+                title = re.sub(r'[\\/:"*?<>|]', '', title)
                 # 取得下載目錄的路徑
                 channel_folder_path = os.path.join(folder_path, channel_name) 
                 playlist_folder_path = os.path.join(channel_folder_path, title) 
-
-                # 建立 channel 資料夾
+                # 建立 channel、playlist 資料夾
                 os.makedirs(channel_folder_path, exist_ok=True)
-
-                # 建立 playlist 資料夾
                 os.makedirs(playlist_folder_path, exist_ok=True)
                 
-                sync_date = None
-                # 判斷folder_path是否存在，不存在則加入資料庫
-                cursor.execute('SELECT folder_path FROM syncfolders WHERE folder_path = ?;', (folder_path,))
-                existing_folder_path = cursor.fetchone()
-                if not existing_folder_path:
+                cursor.execute('SELECT sync_date FROM syncfolders WHERE folder_path = ? AND channel_id = ? AND playlist_id = ?;', (folder_path, channel_id, playlist_id))
+                sync_date = cursor.fetchone()
+                if sync_date is None:
                     # 資料庫中不存在該 folder_path，將它加入資料庫
-                    cursor.execute('INSERT INTO syncfolders (folder_path, sync_date) VALUES (?, ?);', (folder_path, sync_date))
-                    conn.commit()
+                    sync_date = None
+                    cursor.execute('INSERT INTO syncfolders (folder_path, channel_id, playlist_id, sync_date) VALUES (?, ?, ?, ?);', (folder_path, channel_id, playlist_id, datetime.now()))
+                    conn.commit()                    
                 else:
-                    # 取得sync_date
-                    cursor.execute('SELECT sync_date FROM syncfolders WHERE folder_path = ?;', (folder_path,))
-                    sync_date = cursor.fetchone()[0]
-                    if sync_date != None:
-                        sync_date = datetime.strptime(cursor.fetchone()[0], "%Y-%m-%d %H:%M:%S.%f")
-                    
+                    sync_date = datetime.strptime(sync_date[0], "%Y-%m-%d %H:%M:%S.%f")
                 pytube_playlist = Playlist("https://www.youtube.com/playlist?list=" + playlist_id)
                 for url in pytube_playlist.video_urls:
                     # 下載sync_date日期前的影片
                     if sync_date is None or (sync_date <= YouTube(url).publish_date):
                         DOWNLOADER.download([url], playlist_folder_path, audio_only) 
-                # 更新最後同步日期
-                cursor.execute('UPDATE syncfolders SET sync_date = ? WHERE folder_path = ?', (datetime.now(), folder_path))
-                conn.commit()
+                synced_list.append(os.path.join(channel_folder_path, playlist_folder_path) )
+                
+            error_message = "OK!已同步: "+",".join(map(str, synced_list))
     return error_message
 
 @app.route('/delete_channel', methods=['POST'])

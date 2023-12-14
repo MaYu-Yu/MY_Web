@@ -89,7 +89,7 @@ class YouTubeDownloader:
         except ID3NoHeaderError as e:
             audio = ID3()
             print("add_info_mp3 error.")
-            print(error(e))
+            print(e)
         audio.delete()
         audio.add(TIT2(encoding=3, text=info_dict["title"]))
         audio.add(TPE1(encoding=3, text=info_dict["author"]))
@@ -112,7 +112,6 @@ class YouTubeDownloader:
     
     def download_thread(self, url, output_folder, audio_only, lock):
         try:
-            video_id, _ = self.get_id_from_url(url)
             yt, info_dict = self.get_video_info(url)
             audio_stream = yt.streams.filter(mime_type="audio/mp4").last()
             audio_path = audio_stream.download(output_path="temp", filename_prefix=next(self.random_num), skip_existing=False)
@@ -129,7 +128,7 @@ class YouTubeDownloader:
             self.add_info(output_path, info_dict)
             os.remove(audio_path)
             with lock:
-                print(f"Downloaded: {url}")
+                print(f"Downloaded: {output_path}")
         except Exception as e:
             with lock:
                 print(f"Error downloading {url}: {e}")

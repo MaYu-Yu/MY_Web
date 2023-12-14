@@ -1,5 +1,5 @@
 <!-- tracker_manager.html -->
-{% extends 'base.html' %}
+{% extends "base.html" %}
 
 {% block title %}YouTube Playlist Tracker{% endblock %}
 
@@ -9,23 +9,13 @@
     <form method="POST" id="InputForm">
         <div class="mb-3">
             <label for="url" class="form-label">YouTube URL:</label>
-            <input type="text" class="form-control" id="url" name="url">
+            <input type="text" class="form-control" id="url" name="url" placeholder="例如: https://www.youtube.com/@Ado1024/playlists">
         </div>
         <button type="button" class="btn btn-primary" onclick="showLoading()">Add</button>
     </form>
-
-    <!-- Loading Spinner -->
-    <div id="loading" class="d-none">
-        <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Loading...</span>
-        </div>
-        <strong class="mt-2 text-danger">處理中...請不要做其它動作</strong>
-    </div>
-    
     <!-- Display DataBase -->
     <div class="mt-5">
         <h2>YouTube's Tracker</h2>
-    
         {% for channel in channels %}
             <div class="card mb-3">
                 <div class="card-header d-flex justify-content-between align-items-center position-relative" data-bs-toggle="collapse" data-bs-target="#playlist{{ loop.index }}" aria-expanded="true" aria-controls="playlist{{ loop.index }}">
@@ -87,61 +77,16 @@
     
 </div>
 <script>
-    // 恢復卡片折疊狀態
-function restoreCollapseState() {
-    document.querySelectorAll('[data-bs-toggle="collapse"]').forEach(function (element) {
-        var targetId = element.getAttribute('data-bs-target').substring(1);
-        var expanded = localStorage.getItem('collapseState_' + targetId);
-        if (expanded !== null) {
-            element.setAttribute('aria-expanded', expanded === 'true');
-            if (expanded === 'true') {
-                var collapse = new bootstrap.Collapse(element);
-                collapse.show();
-            }
-        }
-    });
-}
-
     document.addEventListener('DOMContentLoaded', function () {
         // 恢復滾輪位置
         if (localStorage.getItem('scrollPosition')) {
             window.scrollTo(0, localStorage.getItem('scrollPosition'));
         }
-    
         // 監聽滾動事件，保存滾輪位置到localStorage
         window.addEventListener('scroll', function () {
             localStorage.setItem('scrollPosition', window.scrollY);
         });
-    
-        // 監聽卡片折疊事件，保存卡片折疊狀態到localStorage
-        document.querySelectorAll('[data-bs-toggle="collapse"]').forEach(function (element) {
-            element.addEventListener('click', function () {
-                var targetId = element.getAttribute('data-bs-target').substring(1);
-                var expanded = element.getAttribute('aria-expanded') === 'true';
-                localStorage.setItem('collapseState_' + targetId, expanded);
-            });
-        });
-    
-        // 恢復卡片折疊狀態
-        restoreCollapseState();
     });
-    
-    // 恢復卡片折疊狀態
-    function restoreCollapseState() {
-        document.querySelectorAll('[data-bs-toggle="collapse"]').forEach(function (element) {
-            var targetId = element.getAttribute('data-bs-target').substring(1);
-            var expanded = localStorage.getItem('collapseState_' + targetId);
-            if (expanded !== null) {
-                element.setAttribute('aria-expanded', expanded === 'true');
-                var collapse = new bootstrap.Collapse(element);
-                if (expanded === 'true') {
-                    collapse.show();
-                } else {
-                    collapse.hide();
-                }
-            }
-        });
-    }
     
 </script>
 {% endblock %}
