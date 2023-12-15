@@ -1,17 +1,21 @@
-<!-- tracker_manager.html -->
+<!-- yt_tracker_tracker_manager -->
 {% extends "base.html" %}
 
-{% block title %}YouTube Playlist Tracker{% endblock %}
+{% block title %}YouTube Tracker Manager{% endblock %}
 
 {% block content %}
-    <h1 class="mb-4">YouTube Playlist Tracker</h1>
+    <h1 class="mb-4">YouTube Tracker Manager</h1>
 
     <form method="POST" id="InputForm">
         <div class="mb-3">
-            <label for="url" class="form-label">YouTube URL:</label>
+            <label for="url" class="form-label">YouTube's URL:</label>
             <input type="text" class="form-control" id="url" name="url" placeholder="例如: https://www.youtube.com/@Ado1024/playlists">
         </div>
-        <button type="button" class="btn btn-primary" onclick="showLoading()">Add</button>
+        <div style="display: flex; align-items: center;">
+            <button type="submit" class="btn btn-primary" onclick="showLoading(event)">匯入資料庫</button>
+            <span style="margin-left: 10px; opacity: 0.3;">將輸入網址的頻道匯入資料庫中。可以從Sync Manager進行同步下載
+            </span>
+        </div>
     </form>
     <!-- Display DataBase -->
     <div class="mt-5">
@@ -29,21 +33,21 @@
                     </div>
                     <div class="col-auto">
                         <!-- Add "Track All" button -->
-                        <form method="POST" action="/track_all" class="d-flex align-items-center">
+                        <form method="POST" action="/yt_tracker_track_all" class="d-flex align-items-center">
                             <input type="hidden" name="channelId" value="{{ channel['id'] }}">
                             <button type="submit" class="btn btn-success">追蹤全部</button>
                         </form>
                     </div>
                     <div class="col-auto">
                         <!-- Add "Untrack All" button -->
-                        <form method="POST" action="/untrack_all" class="d-flex align-items-center">
+                        <form method="POST" action="/yt_tracker_untrack_all" class="d-flex align-items-center">
                             <input type="hidden" name="channelId" value="{{ channel['id'] }}">
                             <button type="submit" class="btn btn-danger">取消追蹤全部</button>
                         </form>
                     </div>
                     <div class="col-auto">
                         <!-- Add "Delete Channel" button with confirmation -->
-                        <form method="POST" action="/delete_channel" class="d-flex align-items-center" onsubmit="return confirm('確定要刪除這個 Channel 嗎？');">
+                        <form method="POST" action="/yt_tracker_delete_channel" class="d-flex align-items-center" onsubmit="return confirm('確定要刪除這個 Channel 嗎？');">
                             <input type="hidden" name="channelId" value="{{ channel['id'] }}">
                             <button type="submit" class="btn btn-warning">刪除</button>
                         </form>
@@ -56,7 +60,7 @@
                             <li class="list-group-item d-flex justify-content-between align-items-center">
                                 <strong><a href='{{"https://www.youtube.com/playlist?list="+playlist["id"]}}' target="_blank">{{ playlist['title'] }}</a></strong>
                                 <!-- Add track_flag button -->
-                                <form method="POST" action="/toggle_track_flag">
+                                <form method="POST" action="/yt_tracker_toggle_track_flag">
                                     <input type="hidden" name="playlistId" value="{{ playlist['id'] }}">
                                     <input type="hidden" name="currentFlag" value="{{ playlist['track_flag'] }}">
                                     <button type="submit" class="btn {% if playlist['track_flag'] == 1 %}btn-primary{% else %}btn-secondary{% endif %}">
@@ -74,8 +78,9 @@
             </div>
         {% endfor %}
     </div>
-    
 </div>
+{% endblock %}
+
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         // 恢復滾輪位置
@@ -89,4 +94,3 @@
     });
     
 </script>
-{% endblock %}

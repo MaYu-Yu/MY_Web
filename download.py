@@ -43,15 +43,23 @@ class YouTubeDownloader:
         return video_id, playlist_id
 
     def get_video_info(self, url):
-        yt = YouTube(url)
-        img = Path("./temp/img/"+self.get_video_ID(url)+".jpg")
-        if not img.exists():
-            urllib.request.urlretrieve(yt.thumbnail_url, img)  # download img
-        info_dict ={
-            "title": yt.title, 
-            "thumbnail_path": str(img),
-            "author": yt.author,
-        }
+        yt = None
+        info_dict = None
+        video_id = self.get_video_ID(url)
+        if video_id is not None:
+            yt = YouTube(url)
+            img = Path("./temp/img/"+video_id+".jpg")
+            if not img.exists():
+                urllib.request.urlretrieve(yt.thumbnail_url, img)  # download img
+            info_dict ={
+                "title": yt.title, 
+                "thumbnail_path": str(img),
+                "author": yt.author,
+                #"captions": yt.captions,# 字幕
+                "publish_date": yt.publish_date,
+                "views": yt.views,
+                "play_len": yt.length
+            }
         return yt, info_dict
     def convert_to_mp3(self, input_path, output_path):
         try:
@@ -136,7 +144,7 @@ class YouTubeDownloader:
     def download(self, urls, output_folder, audio_only=True):
         threads = []
         lock = threading.Lock()
-
+        
         for url in urls:
             thread = threading.Thread(target=self.download_thread, args=(url, output_folder, audio_only, lock))
             threads.append(thread)
@@ -146,7 +154,7 @@ class YouTubeDownloader:
             thread.join()
     def download_from_playlist_id(self, list_id, output_folder, audio_only=True):
         pl = Playlist("https://www.youtube.com/playlist?list=" + list_id)
-        self.download(self, pl.video_urls, output_folder, audio_only)
+        self.download(pl.video_urls, output_folder, audio_only)
 if __name__ == "__main__":
     downloader = YouTubeDownloader()
     url = ["https://www.youtube.com/watch?v=HSTYgU5SH4s&list=PL1NeGg1woXqlISJkxjgwHKgB8LmR7tk92&index=2"]

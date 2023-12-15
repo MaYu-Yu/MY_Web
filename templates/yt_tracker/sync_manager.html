@@ -1,0 +1,29 @@
+<!-- yt_tracker_sync_manager -->
+{% extends "base.html" %}
+
+{% block title %}Sync Manager{% endblock %}
+
+{% block content %}
+    <h1 class="mb-4">Sync Manager</h1>
+
+    <!-- Download Folder Input -->
+    <form id="InputForm" method="POST">
+        <div class="mb-3">
+            <label for="folderPath" class="form-label">下載資料夾路徑:</label>
+            <input type="text" class="form-control" id="folderPath" name="folder_path" placeholder="例如: E:\Music">
+        </div>
+
+        <!-- Audio Only Checkbox -->
+        <div class="mb-3 form-check">
+            <input type="checkbox" class="form-check-input" id="audioOnly" name="audio_only">
+            <label class="form-check-label" for="audioOnly">僅下載音樂</label>
+        </div>
+
+        <!-- Sync and Download Button -->
+        <div style="display: flex; align-items: center;">
+            <button type="submit" class="btn btn-primary" onclick="showLoading(event)">同步下載</button>
+            <span style="margin-left: 10px; opacity: 0.3;">會在下載資料夾路徑內建立頻道、播放清單的資料夾，並下載視頻(音樂)。</span>
+        </div>
+    </form>
+    
+{% endblock %}

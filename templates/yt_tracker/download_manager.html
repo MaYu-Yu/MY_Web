@@ -1,0 +1,37 @@
+<!-- yt_tracker_download_manager -->
+{% extends "base.html" %}
+
+{% block title %}Download Manager{% endblock %}
+
+{% block content %}
+    <h1 class="mb-4">Download Manager</h1>
+
+    <!-- Download Folder Input -->
+    <form id="InputForm" method="POST">
+        <div class="mb-3">
+            <label for="folderPath" class="form-label">下載資料夾路徑:</label>
+            <input type="text" class="form-control" id="folderPath" name="folder_path" placeholder="例如: E:\Music">
+        </div>
+        <div class="mb-3">
+            <label for="url" class="form-label">YouTube's URL:</label>
+            <input type="text" class="form-control" id="url" name="url" placeholder="例如: https://www.youtube.com/watch?v=W_fHWaoQwkw&list=RDW_fHWaoQwkw&index=2">
+        </div>
+        <!-- Checkbox -->
+        <div class="mb-3 form-check">
+            <input type="checkbox" class="form-check-input" id="audioOnly" name="audio_only">
+            <label class="form-check-label" for="audioOnly">僅下載音樂</label>
+        </div>
+        <div class="mb-3 form-check">
+            <input type="checkbox" class="form-check-input" id="downloadPlaylist" name="download_playlist">
+            <label class="form-check-label" for="downloadPlaylist">下載整個播放清單</label>
+        </div>
+
+        <!-- Download Button -->
+        <div style="display: flex; align-items: center;">
+            <button type="submit" class="btn btn-primary" onclick="showLoading(event)">Download</button>
+            <span style="margin-left: 10px; opacity: 0.3;">下載最高畫質(音質)</span>
+        </div>
+        
+    </form>
+    
+{% endblock %}

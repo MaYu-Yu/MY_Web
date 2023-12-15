@@ -1,0 +1,46 @@
+<!-- yt_tracker_index -->
+{% extends "base.html" %}
+
+{% block title %}YouTube Tracker Home{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <h1 class="mb-4">Tracker Manager</h1>
+    <!-- Card for Sync Manager -->
+    <div class="card mb-3">
+        <div class="card-body d-flex justify-content-between align-items-center">
+            <div>
+                <h5 class="card-title">Tracker Manager</h5>
+                <p class="card-text">
+                    此功能可讓您只需輸入url網址，就能輕鬆匯入和追蹤 YouTube 頻道和播放清單，再從Sync Manager進行同步下載。
+                </p>
+            </div>
+            <a href="{{ url_for('yt_tracker_tracker_manager') }}" class="btn btn-primary ml-auto">Go to Tracker Manager</a>
+        </div>
+    </div>    
+    <!-- Card for Sync Manager -->
+    <div class="card mb-3">
+        <div class="card-body d-flex justify-content-between align-items-center">
+            <div>
+                <h5 class="card-title">Sync Manager</h5>
+                <p class="card-text">
+                    這個功能允許您選擇一個資料夾作為下載目的地，同步最新的播放清單內容，並下載已追蹤的影片到指定資料夾中。
+                </p>
+            </div>
+            <a href="{{ url_for('yt_tracker_sync_manager') }}" class="btn btn-primary ml-auto">Go To Sync Manager</a>
+        </div>
+    </div>
+    <!-- Card for Sync Manager -->
+    <div class="card mb-3">
+        <div class="card-body d-flex justify-content-between align-items-center">
+            <div>
+                <h5 class="card-title">Donwload Manager</h5>
+                <p class="card-text">
+                    此功能可讓您只需輸入url網址，就可以自由下載YouTube的音頻和視頻，也可以直接下載整個播放清單。
+                </p>
+            </div>
+            <a href="{{ url_for('yt_tracker_download_manager') }}" class="btn btn-primary ml-auto">Go To Download Manager</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
