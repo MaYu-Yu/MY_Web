@@ -8,10 +8,11 @@ import urllib.request
 from mutagen.mp4 import MP4, MP4Cover
 from mutagen.id3 import ID3, APIC, TIT2, TPE1, TALB, ID3NoHeaderError
 import threading
-
+import shutil
 class YouTubeDownloader:
     def __init__(self):
         self.random_num = self.get_random()
+        shutil.rmtree("./temp/", ignore_errors=True)
         Path("./temp/img/").mkdir(parents=True, exist_ok=True)
 
     def get_random(self):
@@ -122,21 +123,35 @@ class YouTubeDownloader:
         try:
             yt, info_dict = self.get_video_info(url)
             audio_stream = yt.streams.filter(mime_type="audio/mp4").last()
-            audio_path = audio_stream.download(output_path="temp", filename_prefix=next(self.random_num), skip_existing=False)
+            mp4_output_path = os.path.join(output_folder, audio_stream.default_filename)
+            mp3_output_path = os.path.join(output_folder, audio_stream.default_filename.replace(".mp4", ".mp3"))
+
             if audio_only:
-                output_path = os.path.join(output_folder, audio_stream.default_filename.replace(".mp4", ".mp3"))
+                if os.path.exists(mp3_output_path):
+                    return
+
+                output_path = mp3_output_path
+                audio_path = audio_stream.download(output_path="temp", filename_prefix=next(self.random_num), skip_existing=False)
                 self.convert_to_mp3(audio_path, output_path)
+                self.add_info(output_path, info_dict)
+                os.remove(audio_path)
+
             else:
+                if os.path.exists(mp4_output_path):
+                    return
+
+                output_path = mp4_output_path
+                audio_path = audio_stream.download(output_path="temp", filename_prefix=next(self.random_num), skip_existing=False)
                 video_stream = yt.streams.filter(adaptive=True, mime_type="video/mp4").first()
                 video_path = video_stream.download(output_path="temp", filename_prefix=next(self.random_num), skip_existing=False)
-                output_path = os.path.join(output_folder, video_stream.default_filename)
                 self.merge_audio_and_video(audio_path, video_path, output_path)
+                self.add_info(output_path, info_dict)
                 os.remove(video_path)
-            
-            self.add_info(output_path, info_dict)
-            os.remove(audio_path)
+                os.remove(audio_path)
+
             with lock:
                 print(f"Downloaded: {output_path}")
+
         except Exception as e:
             with lock:
                 print(f"Error downloading {url}: {e}")

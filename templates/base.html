@@ -211,9 +211,22 @@
             // 在延遲後手動提交表單（您可以根據需要調整延遲）
             setTimeout(function() {
                 document.getElementById('InputForm').submit();
-            }, 500);  // 延遲500毫秒，根據需要進行調整
+            }, 100);  // 延遲100毫秒，根據需要進行調整
         }
     </script>
-
+    <!-- 恢復滾輪位置 -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // 恢復滾輪位置
+            if (localStorage.getItem('scrollPosition')) {
+                window.scrollTo(0, localStorage.getItem('scrollPosition'));
+            }
+            // 監聽滾動事件，保存滾輪位置到localStorage
+            window.addEventListener('scroll', function () {
+                localStorage.setItem('scrollPosition', window.scrollY);
+            });
+        });
+        
+    </script>
 </body>
 </html>

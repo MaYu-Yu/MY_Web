@@ -1,5 +1,5 @@
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from flask import Flask, render_template, request, redirect, url_for
 from bs4 import BeautifulSoup
 from selenium import webdriver
@@ -45,7 +45,8 @@ def yt_tracker_init_db():
                 channel_id TEXT NOT NULL,
                 playlist_id TEXT NOT NULL,
                 sync_date DATETIME,
-                PRIMARY KEY (folder_path, channel_id, playlist_id),
+                audio_only INTEGER NOT NULL DEFAULT 1,
+                PRIMARY KEY (folder_path, channel_id, playlist_id, audio_only),
                 FOREIGN KEY (channel_id) REFERENCES channels (id),
                 FOREIGN KEY (playlist_id) REFERENCES playlists (id)
             );
@@ -164,22 +165,37 @@ def yt_tracker_sync(folder_path, audio_only):
             os.makedirs(channel_folder_path, exist_ok=True)
             os.makedirs(playlist_folder_path, exist_ok=True)
             
-            cursor.execute('SELECT sync_date FROM syncfolders WHERE folder_path = ? AND channel_id = ? AND playlist_id = ?;', (folder_path, channel_id, playlist_id))
+            cursor.execute('SELECT sync_date FROM syncfolders WHERE folder_path = ? AND channel_id = ? AND playlist_id = ? AND audio_only = ?;', (folder_path, channel_id, playlist_id, int(audio_only)))
             sync_date = cursor.fetchone()
-            if sync_date is None:
-                # 資料庫中不存在該 folder_path，將它加入資料庫
-                sync_date = None
-                cursor.execute('INSERT INTO syncfolders (folder_path, channel_id, playlist_id, sync_date) VALUES (?, ?, ?, ?);', (folder_path, channel_id, playlist_id, datetime.now()))
-                conn.commit()                    
-            else:
+            if sync_date is not None:
                 sync_date = datetime.strptime(sync_date[0], "%Y-%m-%d %H:%M:%S.%f")
+                
             pytube_playlist = Playlist("https://www.youtube.com/playlist?list=" + playlist_id)
-            for url in pytube_playlist.video_urls:
-                # 下載sync_date日期前的影片
-                if sync_date is None or (sync_date <= YouTube(url).publish_date):
-                    DOWNLOADER.download([url], playlist_folder_path, audio_only) 
+            try:
+                if pytube_playlist.last_updated:
+                    if isinstance(pytube_playlist.last_updated, str):
+                        days_ago = int(pytube_playlist.last_updated)
+                        last_updated_date = datetime.now().date() - timedelta(days=days_ago)
+                    else:
+                        last_updated_date = pytube_playlist.last_updated
+                    
+                last_updated_date = datetime.combine(last_updated_date, time()) if last_updated_date else None
+            except IndexError:
+                last_updated_date = None
+            # 先判斷playlist日期
+            if sync_date is None or last_updated_date is None or (sync_date <= last_updated_date):
+                for url in pytube_playlist.video_urls:
+                    # 下載sync_date日期前的影片
+                    if sync_date is None or (sync_date <= YouTube(url).publish_date):
+                        DOWNLOADER.download([url], playlist_folder_path, audio_only) 
+            else:
+                print("SYNC OK:", pytube_playlist.owner, pytube_playlist.title)
             synced_list.append(os.path.join(channel_folder_path, playlist_folder_path) )
             
+        if sync_date is None:
+            # 資料庫中不存在該 folder_path，將它加入資料庫
+            cursor.execute('INSERT INTO syncfolders (folder_path, channel_id, playlist_id, sync_date, audio_only) VALUES (?, ?, ?, ?, ?);', (folder_path, channel_id, playlist_id, datetime.now(), int(audio_only)))
+            conn.commit()                    
         normal_message = "已同步: "+",".join(map(str, synced_list))
     return error_message, normal_message
 # 追蹤全部
@@ -365,38 +381,6 @@ def yt_tracker_index():
     return render_template('/yt_tracker/index.html', error_message=error_message, normal_message=normal_message)
 
 ############################################## home ##############################################
-def init_db():
-    with sqlite3.connect('yt_tracker.db') as conn:
-        cursor = conn.cursor()
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS channels (
-                id TEXT NOT NULL PRIMARY KEY,
-                name TEXT NOT NULL
-            )
-        ''')
-
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS playlists (
-                id TEXT NOT NULL PRIMARY KEY,
-                title TEXT NOT NULL,
-                track_flag INTEGER,
-                channel_id TEXT,
-                FOREIGN KEY (channel_id) REFERENCES channels (id)
-            )
-        ''')
-        
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS syncfolders (
-                folder_path TEXT NOT NULL,
-                channel_id TEXT NOT NULL,
-                playlist_id TEXT NOT NULL,
-                sync_date DATETIME,
-                PRIMARY KEY (folder_path, channel_id, playlist_id),
-                FOREIGN KEY (channel_id) REFERENCES channels (id),
-                FOREIGN KEY (playlist_id) REFERENCES playlists (id)
-            );
-        ''')
-        conn.commit()
 @app.route('/', methods=['GET', 'POST'])
 def index():
     error_message = ''
