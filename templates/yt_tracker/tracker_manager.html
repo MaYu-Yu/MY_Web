@@ -32,12 +32,20 @@
                         </button>
                     </div>
                     <div class="col-auto">
-                        <!-- "Track All" button -->
-                        <form method="POST" action="/yt_tracker_track_all" class="d-flex align-items-center">
+                        <!-- "Track All Audio" button -->
+                        <form method="POST" action="/yt_tracker_track_all_audio" class="d-flex align-items-center">
                             <input type="hidden" name="channelId" value="{{ channel['id'] }}">
-                            <button type="submit" class="btn btn-success">追蹤全部</button>
+                            <button type="submit" class="btn btn-success">追蹤全部音樂</button>
                         </form>
                     </div>
+                    <div class="col-auto">
+                        <!-- "Track All Videos" button -->
+                        <form method="POST" action="/yt_tracker_track_all_videos" class="d-flex align-items-center">
+                            <input type="hidden" name="channelId" value="{{ channel['id'] }}">
+                            <button type="submit" class="btn btn-info">追蹤全部視頻</button>
+                        </form>
+                    </div>
+
                     <div class="col-auto">
                         <!-- "Untrack All" button -->
                         <form method="POST" action="/yt_tracker_untrack_all" class="d-flex align-items-center">
@@ -64,13 +72,15 @@
                                     <input type="hidden" name="playlistId" value="{{ playlist['id'] }}">
                                     <input type="hidden" name="currentFlag" value="{{ playlist['track_flag'] }}">
                                     <span style="margin-left: 10px; opacity: 0.3;">{{ playlist['title'] }}</span>
-                                    <button type="submit" class="btn {% if playlist['track_flag'] == 1 %}btn-primary{% else %}btn-secondary{% endif %}">
+                                    <button type="submit" class="btn {% if playlist['track_flag'] == 1 %}btn-success{% elif playlist['track_flag'] == 2 %}btn-info{% else %}btn-secondary{% endif %}">
                                         {% if playlist['track_flag'] == 1 %}
-                                            已追蹤
+                                            追蹤音樂
+                                        {% elif playlist['track_flag'] == 2 %}
+                                            追蹤視頻
                                         {% else %}
                                             未追蹤
                                         {% endif %}
-                                    </button>                                    
+                                    </button>                                                 
                                 </form>
                             </li>
                         {% endfor %}

@@ -38,16 +38,13 @@ def yt_tracker_init_db():
                 FOREIGN KEY (channel_id) REFERENCES channels (id)
             )
         ''')
-        
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS syncfolders (
                 folder_path TEXT NOT NULL,
-                channel_id TEXT NOT NULL,
                 playlist_id TEXT NOT NULL,
                 sync_date DATETIME,
                 audio_only INTEGER NOT NULL DEFAULT 1,
-                PRIMARY KEY (folder_path, channel_id, playlist_id, audio_only),
-                FOREIGN KEY (channel_id) REFERENCES channels (id),
+                PRIMARY KEY (folder_path, playlist_id, audio_only),
                 FOREIGN KEY (playlist_id) REFERENCES playlists (id)
             );
         ''')
@@ -137,7 +134,7 @@ def get_data_from_db():
                 channel['playlists'].append(playlists)
             channels.append(channel)
     return channels
-def yt_tracker_sync(folder_path, audio_only):
+def yt_tracker_sync(folder_path):
     # 檢查下載目錄是否存在
     error_message = ''
     normal_message = ''
@@ -146,11 +143,11 @@ def yt_tracker_sync(folder_path, audio_only):
         cursor = conn.cursor()
         
         # 獲取所有需要同步的播放清單
-        cursor.execute('SELECT * FROM playlists WHERE track_flag = 1;')
+        cursor.execute('SELECT * FROM playlists WHERE track_flag = 1 OR track_flag = 2;')
         playlists_to_download = cursor.fetchall()
             
-        for playlist_info in playlists_to_download:
-            playlist_id, title, track_flag, channel_id = playlist_info
+        for playlist_id, title, track_flag, channel_id in playlists_to_download:
+            audio_only = int(track_flag) == 1
             # 取得channel_name
             cursor.execute('SELECT name FROM channels WHERE id = ?;', (channel_id,))
             channel_name = cursor.fetchone()[0]
@@ -165,7 +162,7 @@ def yt_tracker_sync(folder_path, audio_only):
             os.makedirs(channel_folder_path, exist_ok=True)
             os.makedirs(playlist_folder_path, exist_ok=True)
             
-            cursor.execute('SELECT sync_date FROM syncfolders WHERE folder_path = ? AND channel_id = ? AND playlist_id = ? AND audio_only = ?;', (folder_path, channel_id, playlist_id, int(audio_only)))
+            cursor.execute('SELECT sync_date FROM syncfolders WHERE folder_path = ? AND playlist_id = ? AND audio_only = ?;', (folder_path, playlist_id, int(audio_only)))
             sync_date = cursor.fetchone()
             if sync_date is not None:
                 sync_date = datetime.strptime(sync_date[0], "%Y-%m-%d %H:%M:%S.%f")
@@ -185,22 +182,27 @@ def yt_tracker_sync(folder_path, audio_only):
             # 先判斷playlist日期
             if sync_date is None or last_updated_date is None or (sync_date <= last_updated_date):
                 for url in pytube_playlist.video_urls:
-                    # 下載sync_date日期前的影片
-                    if sync_date is None or (sync_date <= YouTube(url).publish_date):
-                        DOWNLOADER.download([url], playlist_folder_path, audio_only) 
-            else:
-                print("SYNC OK:", pytube_playlist.owner, pytube_playlist.title)
+                    try:
+                        # 下載sync_date日期前
+                        if sync_date is None or (sync_date <= YouTube(url).publish_date):
+                            DOWNLOADER.download([url], playlist_folder_path, audio_only) 
+                    except Exception as e:
+                        error_message = f"Error downloading {url}: {e}"
+            print("SYNC OK:", pytube_playlist.owner, pytube_playlist.title)
             synced_list.append(os.path.join(channel_folder_path, playlist_folder_path) )
             
-        if sync_date is None:
-            # 資料庫中不存在該 folder_path，將它加入資料庫
-            cursor.execute('INSERT INTO syncfolders (folder_path, channel_id, playlist_id, sync_date, audio_only) VALUES (?, ?, ?, ?, ?);', (folder_path, channel_id, playlist_id, datetime.now(), int(audio_only)))
-            conn.commit()                    
+            if sync_date is None:
+                # 資料庫中不存在該 folder_path，將它加入資料庫
+                cursor.execute('INSERT INTO syncfolders (folder_path, playlist_id, sync_date, audio_only) VALUES (?, ?, ?, ?);', (folder_path, playlist_id, datetime.now(), int(audio_only)))
+                conn.commit()                    
+            else:
+                cursor.execute('UPDATE syncfolders SET sync_date = ? WHERE folder_path = ? AND playlist_id = ? AND audio_only = ?', (datetime.now(), folder_path, playlist_id, int(audio_only)))
+                conn.commit()    
         normal_message = "已同步: "+",".join(map(str, synced_list))
     return error_message, normal_message
-# 追蹤全部
-@app.route('/yt_tracker_track_all', methods=['POST'])
-def yt_tracker_track_all():
+# 追蹤全部音樂
+@app.route('/yt_tracker_track_all_audio', methods=['POST'])
+def yt_tracker_track_all_audio():
     if request.method == 'POST' and 'channelId' in request.form:
         channel_id = request.form['channelId']
 
@@ -215,6 +217,27 @@ def yt_tracker_track_all():
             # 對每個播放清單進行處理，例如將其標記為已追蹤
             for playlist_id in playlist_ids:
                 cursor.execute('UPDATE playlists SET track_flag = 1 WHERE id = ?', (playlist_id,))
+                conn.commit()
+
+    # 重定向到主頁面
+    return redirect(url_for('yt_tracker_tracker_manager'))
+# 追蹤全部視頻
+@app.route('/yt_tracker_track_all_videos', methods=['POST'])
+def yt_tracker_track_all_videos():
+    if request.method == 'POST' and 'channelId' in request.form:
+        channel_id = request.form['channelId']
+
+        # 在這裡加入處理邏輯，例如遍歷該頻道的所有播放清單，然後進行相應的處理
+        with sqlite3.connect('yt_tracker.db') as conn:
+            cursor = conn.cursor()
+            
+            # 取得該頻道的所有播放清單
+            cursor.execute('SELECT id FROM playlists WHERE channel_id = ?', (channel_id,))
+            playlist_ids = [row[0] for row in cursor.fetchall()]
+
+            # 對每個播放清單進行處理，例如將其標記為已追蹤
+            for playlist_id in playlist_ids:
+                cursor.execute('UPDATE playlists SET track_flag = 2 WHERE id = ?', (playlist_id,))
                 conn.commit()
 
     # 重定向到主頁面
@@ -241,13 +264,13 @@ def yt_tracker_untrack_all():
 
     # 重定向到主頁面
     return redirect(url_for('yt_tracker_tracker_manager'))
+
 # 追蹤反轉
 @app.route('/yt_tracker_toggle_track_flag', methods=['POST'])
 def yt_tracker_toggle_track_flag():
     if request.method == 'POST' and 'playlistId' in request.form:
         playlist_id = request.form['playlistId']
 
-        # 确保 current_flag 是整数
         current_flag = int(request.form['currentFlag'])
 
         with sqlite3.connect('yt_tracker.db') as conn:
@@ -256,12 +279,13 @@ def yt_tracker_toggle_track_flag():
             existing_track_flag = cursor.fetchone()[0]
 
             if existing_track_flag is not None:
-                new_track_flag = 1 if current_flag == 0 else 0
+                # 循環在 0、1、2
+                new_track_flag = (current_flag + 1) % 3
                 cursor.execute('UPDATE playlists SET track_flag = ? WHERE id = ?', (new_track_flag, playlist_id))
                 conn.commit()
 
-    # 重定向到主页
     return redirect(url_for('yt_tracker_tracker_manager'))
+
 @app.route('/yt_tracker_tracker_manager', methods=['GET', 'POST'])
 def yt_tracker_tracker_manager():
     error_message = ''
@@ -311,7 +335,6 @@ def yt_tracker_sync_manager():
         # 獲取用戶選擇的下載目錄
         try:
             folder_path = request.form.get('folder_path')
-            audio_only = request.form.get('audio_only') == 'on'
             
         except Exception as e:
             traceback.print_exc()  # 將異常的詳細資訊輸出到控制台
@@ -320,7 +343,7 @@ def yt_tracker_sync_manager():
         if not os.path.exists(folder_path):
             error_message = f"Download folder '{folder_path}' does not exist."
         else:
-            error_message, normal_message = yt_tracker_sync(folder_path, audio_only)    
+            error_message, normal_message = yt_tracker_sync(folder_path)    
 
     channels = get_data_from_db()
     return render_template('/yt_tracker/sync_manager.html', error_message=error_message, normal_message=normal_message, channels=channels)
