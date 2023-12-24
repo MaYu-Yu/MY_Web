@@ -20,6 +20,9 @@
     <!-- Display DataBase -->
     <div class="mt-5">
         <h2>YouTube's Tracker</h2>
+        <div class="mt-3">
+            <button class="btn btn-info" id="toggleAllButton">開啟/關閉所有卡片</button>
+        </div>
         {% for channel in channels %}
             <div class="card mb-3">
                 <div class="card-header d-flex justify-content-between align-items-center position-relative" data-bs-toggle="collapse" data-bs-target="#playlist{{ loop.index }}" aria-expanded="true" aria-controls="playlist{{ loop.index }}">
@@ -62,7 +65,7 @@
                     </div>
                 </div>
                 
-                <div class="collapse show" id="playlist{{ loop.index }}">
+                <div class="collapse {{ 'show' if session.get('collapse_state_' + loop.index|string, 'true') == 'true' else '' }}" id="playlist{{ loop.index }}">
                     <ul class="list-group list-group-flush">
                         {% for playlist in channel['playlists'] %}
                             <li class="list-group-item d-flex justify-content-between align-items-center">
@@ -90,4 +93,58 @@
         {% endfor %}
     </div>
 </div>
+
+<script>
+    // 一件開啟/關閉卡片摺疊狀態
+    document.addEventListener("DOMContentLoaded", function() {
+        // 遍歷卡片狀態
+        const collapseButtons = document.querySelectorAll('[data-bs-toggle="collapse"]');
+        
+        collapseButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const index = button.getAttribute('data-bs-target').replace('#playlist', '');
+                const currentState = button.getAttribute('aria-expanded');
+                
+                fetch('/save_collapse_state/' + index + '/' + currentState);
+            });
+        });
+
+        // 新增按鈕
+        const collapseAllButton = document.createElement('button');
+        collapseAllButton.textContent = 'Collapse All';
+        collapseAllButton.className = 'btn btn-secondary';
+        collapseAllButton.addEventListener('click', function() {
+
+            collapseButtons.forEach(button => {
+                fetch('/save_collapse_state/' + button.getAttribute('data-bs-target').replace('#playlist', '') + '/false');
+            });
+        });
+
+        const contentDiv = document.querySelector('#content');
+        contentDiv.insertBefore(collapseAllButton, contentDiv.firstChild);
+    });
+</script>
+
+<script>
+    // 卡片開關折疊
+    document.addEventListener("DOMContentLoaded", function() {
+        const toggleAllButton = document.getElementById('toggleAllButton');
+        const collapseButtons = document.querySelectorAll('[data-bs-toggle="collapse"]');
+
+        toggleAllButton.addEventListener('click', function() {
+            collapseButtons.forEach(button => {
+                const index = button.getAttribute('data-bs-target').replace('#playlist', '');
+                const isCollapsed = button.getAttribute('aria-expanded') === 'false';
+
+                // 更新卡片的狀態
+                fetch('/save_collapse_state/' + index + '/' + isCollapsed);
+
+                // 切換卡片的展開或折疊狀態
+                button.setAttribute('aria-expanded', isCollapsed ? 'true' : 'false');
+                const collapseElement = document.getElementById('playlist' + index);
+                collapseElement.classList.toggle('show', isCollapsed);
+            });
+        });
+    });
+</script>
 {% endblock %}

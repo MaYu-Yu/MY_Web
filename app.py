@@ -1,6 +1,7 @@
 import sqlite3
 from datetime import datetime, time, timedelta
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, session
+import secrets
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromeService
@@ -15,8 +16,13 @@ from pytube.exceptions import RegexMatchError
 import re, os, traceback
 
 from download import YouTubeDownloader
+
 app = Flask(__name__)
 app.static_folder = 'static'
+
+# set session key
+secret_key = secrets.token_hex(16)
+app.secret_key = secret_key 
 
 ############################################## yt_tracker ##############################################
 def yt_tracker_init_db():
@@ -134,6 +140,7 @@ def get_data_from_db():
                 channel['playlists'].append(playlists)
             channels.append(channel)
     return channels
+
 def yt_tracker_sync(folder_path):
     # 檢查下載目錄是否存在
     error_message = ''
@@ -200,6 +207,12 @@ def yt_tracker_sync(folder_path):
                 conn.commit()    
         normal_message = "已同步: "+",".join(map(str, synced_list))
     return error_message, normal_message
+
+# 保存卡片開關狀態到session
+@app.route('/save_collapse_state/<int:index>/<string:state>', methods=['GET'])
+def save_collapse_state(index, state):
+    session['collapse_state_' + str(index)] = state
+    return ''
 # 追蹤全部音樂
 @app.route('/yt_tracker_track_all_audio', methods=['POST'])
 def yt_tracker_track_all_audio():
