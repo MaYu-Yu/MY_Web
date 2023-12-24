@@ -16,6 +16,7 @@ from pytube.exceptions import RegexMatchError
 import re, os, traceback
 
 from download import YouTubeDownloader
+from auto_subtitles import AutoSubtitles
 
 app = Flask(__name__)
 app.static_folder = 'static'
@@ -23,7 +24,25 @@ app.static_folder = 'static'
 # set session key
 secret_key = secrets.token_hex(16)
 app.secret_key = secret_key 
+############################################## format_trans ##############################################
+@app.route('/auto_subtitles', methods=['GET', 'POST'])
+def auto_subtitles():
+    error_message = ''
+    normal_message = ''    
+    
+    auto_subtitles = AutoSubtitles()
+    audio_path = "o/test.mp4"
+    
+    result = auto_subtitles.auto_add_subtitles(audio_path)
+    print(result)
+    
+    return render_template('/format_trans/auto_subtitles.html', error_message=error_message, normal_message=normal_message)
 
+@app.route('/format_trans_index', methods=['GET', 'POST'])
+def format_trans_index():
+    error_message = ''
+    normal_message = ''
+    return render_template('/format_trans/index.html', error_message=error_message, normal_message=normal_message)
 ############################################## yt_tracker ##############################################
 def yt_tracker_init_db():
     with sqlite3.connect('yt_tracker.db') as conn:
