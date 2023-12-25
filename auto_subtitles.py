@@ -32,7 +32,8 @@ class AutoSubtitles:
         print("正在加载 Whisper 模型...")  # 載入 Whisper 語音轉文字模型
         self.whisper_model = whisper.load_model(self.model_type, device=self.DEVICE)
         
-        
+    def get_langs(self, return_dict=False):
+        return GoogleTranslator().get_supported_languages(as_dict=return_dict)
     def is_audio_file(self, file_path):
         return Path(file_path).suffix.lower() in self.AUDIO_EXTENSIONS
     
@@ -125,12 +126,14 @@ class AutoSubtitles:
             print(f"加入字幕時發生錯誤: {e.stderr}")
             return str(e.stderr)
         
-    def auto_add_subtitles(self, audio_path):
+    def auto_add_subtitles(self, audio_path, source_lang='auto', target_lang='zh-TW'):
         """
         一鍵執行生成字幕、翻譯、加入視頻內
 
         参数:
             audio_path (str): 輸入音頻/視頻檔案路徑
+            source_lang (str): SRT檔案原始語言，預設為'auto'
+            target_lang (str): 翻譯目標語言，預設為'zh-TW'
 
         返回:
             str: 輸出的視頻檔案路徑，輸出失敗則為None
@@ -140,7 +143,7 @@ class AutoSubtitles:
             audio_srt_path = self.extract_audio_to_srt(audio_path)
             if not audio_srt_path:
                 return None
-            transed_srt_path = auto_subtitles.srt_translate_to_srt(audio_srt_path)
+            transed_srt_path = auto_subtitles.srt_translate_to_srt(audio_srt_path, source_lang, target_lang)
             if not transed_srt_path:
                 return None
             result = auto_subtitles.add_subtitles(transed_srt_path, audio_path)

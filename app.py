@@ -29,14 +29,16 @@ app.secret_key = secret_key
 def auto_subtitles():
     error_message = ''
     normal_message = ''    
-    
-    auto_subtitles = AutoSubtitles()
-    audio_path = "o/test.mp4"
-    
-    result = auto_subtitles.auto_add_subtitles(audio_path)
-    print(result)
-    
-    return render_template('/format_trans/auto_subtitles.html', error_message=error_message, normal_message=normal_message)
+    langs_dict = AUTO_SUBTITLES.get_langs(True)
+    langs_dict.update({'auto':'auto'})
+    if request.method == 'POST' and 'file_path' in request.form :
+        file_path = request.form['file_path']
+        source_lang = request.form['source_lang']
+        target_lang = request.form['target_lang']
+        result = AUTO_SUBTITLES.auto_add_subtitles(file_path, source_lang, target_lang)
+        return render_template('/format_trans/auto_subtitles.html', error_message=error_message, normal_message=normal_message, langs_dict=langs_dict)
+
+    return render_template('/format_trans/auto_subtitles.html', error_message=error_message, normal_message=normal_message, langs_dict=langs_dict)
 
 @app.route('/format_trans_index', methods=['GET', 'POST'])
 def format_trans_index():
@@ -444,5 +446,8 @@ def index():
 if __name__ == "__main__":
     # 初始化下載器
     DOWNLOADER = YouTubeDownloader()
+    # 初始化字幕生成模型
+#    AUTO_SUBTITLES = AutoSubtitles()
+
     yt_tracker_init_db()
     app.run(debug=True)

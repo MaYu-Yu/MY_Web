@@ -1,1 +1,65 @@
 <!-- auto_subtitles -->
+{% extends "base.html" %}
+
+{% block title %}Auto Subtitles{% endblock %}
+
+{% block content %}
+    <h1 class="mb-4">Auto Subtitles</h1>
+
+    <!-- File Upload Form -->
+    <form id="InputForm" method="POST" enctype="multipart/form-data" action="{{ url_for('auto_subtitles') }}">
+        <div class="mb-3">
+            <label for="fileUpload" class="form-label">檔案上傳:</label>
+            <input type="file" class="form-control" id="fileUpload" name="file_path" accept=".mp4, .mp3">
+        </div>
+        
+        <!-- Source Language Dropdown -->
+        <div class="mb-3">
+            <label for="sourceLang" class="form-label">原始語言:</label>
+            <select class="form-select" id="sourceLang" name="source_lang">
+                {% for key, value in langs_dict.items() %}
+                    <option value="{{ value }}" {% if value == 'auto' %}selected{% endif %}>{{ key }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Target Language Dropdown -->
+        <div class="mb-3">
+            <label for="targetLang" class="form-label">目標語言:</label>
+            <select class="form-select" id="targetLang" name="target_lang">
+                {% for key, value in langs_dict.items() %}
+                    <option value="{{ value }}" {% if value == 'zh-TW' %}selected{% endif %}>{{ key }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Submit Button -->
+        <div style="display: flex; align-items: center;">
+            <button type="submit" class="btn btn-primary" onclick="showLoading(event)">生成字幕</button>
+            <span style="margin-left: 10px; opacity: 0.3;">自動生成字幕</span>
+        </div>
+    </form>
+
+    <!-- Result and Video Preview Section -->
+    {% if result %}
+        <div class="mt-4">
+            <h4>生成字幕結果:</h4>
+            <p>{{ result }}</p>
+        </div>
+        
+        <!-- Video Preview -->
+        <div class="mt-4">
+            <h4>影片預覽:</h4>
+            <video width="640" height="360" controls>
+                <source src="{{ result }}" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+        </div>
+
+        <!-- Download Button -->
+        <div class="mt-4">
+            <h4>下載影片:</h4>
+            <a href="{{ result }}" download="auto_subtitles_video.mp4" class="btn btn-success">下載影片</a>
+        </div>
+    {% endif %}
+{% endblock %}
