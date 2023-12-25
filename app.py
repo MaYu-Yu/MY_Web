@@ -1,6 +1,7 @@
 import sqlite3
+import re, os, traceback, shutil
 from datetime import datetime, time, timedelta
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, render_template, request, redirect, url_for, session, flash
 import secrets
 from bs4 import BeautifulSoup
 from selenium import webdriver
@@ -9,42 +10,59 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-
 from pytube import YouTube, Playlist,Channel
 from pytube.exceptions import RegexMatchError
-
-import re, os, traceback
 
 from download import YouTubeDownloader
 from auto_subtitles import AutoSubtitles
 
 app = Flask(__name__)
 app.static_folder = 'static'
-
+# 設定上傳文件的保存目錄
+UPLOAD_FOLDER = './static/upload/'
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+shutil.rmtree(UPLOAD_FOLDER, ignore_errors=True)
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 # set session key
 secret_key = secrets.token_hex(16)
 app.secret_key = secret_key 
-############################################## format_trans ##############################################
+
+############################################## gadget ##############################################
 @app.route('/auto_subtitles', methods=['GET', 'POST'])
 def auto_subtitles():
     error_message = ''
     normal_message = ''    
     langs_dict = AUTO_SUBTITLES.get_langs(True)
-    langs_dict.update({'auto':'auto'})
-    if request.method == 'POST' and 'file_path' in request.form :
-        file_path = request.form['file_path']
+    langs_dict.update({'auto': 'auto'})
+
+    if request.method == 'POST':
+        if 'file_path' not in request.files:
+            error_message+='No file part'
+            return render_template('/gadget/auto_subtitles.html', error_message=error_message, normal_message=normal_message, langs_dict=langs_dict)
+        file = request.files['file_path']
+
+        if file.filename == '':
+            error_message+='No selected file'
+            return render_template('/gadget/auto_subtitles.html', error_message=error_message, normal_message=normal_message, langs_dict=langs_dict)
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
+        file.save(file_path)
+
         source_lang = request.form['source_lang']
         target_lang = request.form['target_lang']
-        result = AUTO_SUBTITLES.auto_add_subtitles(file_path, source_lang, target_lang)
-        return render_template('/format_trans/auto_subtitles.html', error_message=error_message, normal_message=normal_message, langs_dict=langs_dict)
 
-    return render_template('/format_trans/auto_subtitles.html', error_message=error_message, normal_message=normal_message, langs_dict=langs_dict)
+        if file_path:
+            video_path = AUTO_SUBTITLES.auto_add_subtitles(file_path, source_lang, target_lang)
+            if video_path == "None":
+                error_message +='Error auto add subtitles'
+            return render_template('/gadget/auto_subtitles.html', error_message=error_message, normal_message=normal_message, langs_dict=langs_dict, video_path=video_path)
 
-@app.route('/format_trans_index', methods=['GET', 'POST'])
-def format_trans_index():
+    return render_template('/gadget/auto_subtitles.html', error_message=error_message, normal_message=normal_message, langs_dict=langs_dict)
+
+@app.route('/gadget_index', methods=['GET', 'POST'])
+def gadget_index():
     error_message = ''
     normal_message = ''
-    return render_template('/format_trans/index.html', error_message=error_message, normal_message=normal_message)
+    return render_template('/gadget/index.html', error_message=error_message, normal_message=normal_message)
 ############################################## yt_tracker ##############################################
 def yt_tracker_init_db():
     with sqlite3.connect('yt_tracker.db') as conn:
@@ -438,6 +456,25 @@ def yt_tracker_index():
     return render_template('/yt_tracker/index.html', error_message=error_message, normal_message=normal_message)
 
 ############################################## home ##############################################
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    if 'file_path' not in request.files:
+        flash('No file part')
+        return redirect(request.url)
+
+    file = request.files['file_path']
+
+    if file.filename == '':
+        flash('No selected file')
+        return redirect(request.url)
+
+    if file:
+        # 確保目錄存在
+        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+        # 將文件保存到指定目錄
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
+        file.save(file_path)
+        
 @app.route('/', methods=['GET', 'POST'])
 def index():
     error_message = ''
@@ -447,7 +484,6 @@ if __name__ == "__main__":
     # 初始化下載器
     DOWNLOADER = YouTubeDownloader()
     # 初始化字幕生成模型
-#    AUTO_SUBTITLES = AutoSubtitles()
-
+    AUTO_SUBTITLES = AutoSubtitles()
     yt_tracker_init_db()
     app.run(debug=True)

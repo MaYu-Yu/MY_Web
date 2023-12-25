@@ -28,7 +28,9 @@
             <label for="targetLang" class="form-label">目標語言:</label>
             <select class="form-select" id="targetLang" name="target_lang">
                 {% for key, value in langs_dict.items() %}
-                    <option value="{{ value }}" {% if value == 'zh-TW' %}selected{% endif %}>{{ key }}</option>
+                    {% if value != 'auto' %}
+                        <option value="{{ value }}" {% if value == 'zh-TW' %}selected{% endif %}>{{ key }}</option>
+                    {% endif %}
                 {% endfor %}
             </select>
         </div>
@@ -41,25 +43,14 @@
     </form>
 
     <!-- Result and Video Preview Section -->
-    {% if result %}
-        <div class="mt-4">
-            <h4>生成字幕結果:</h4>
-            <p>{{ result }}</p>
-        </div>
-        
+    {% if video_path %}
         <!-- Video Preview -->
         <div class="mt-4">
-            <h4>影片預覽:</h4>
-            <video width="640" height="360" controls>
-                <source src="{{ result }}" type="video/mp4">
+            <h4>影片預覽:<a href="{{ video_path }}" download="{{ video_path.name }}.mp4" class="btn btn-success">下載影片</a></h4>
+            <video width="720" height="480" controls>
+                <source src="{{ video_path }}" type="video/mp4">
                 Your browser does not support the video tag.
             </video>
-        </div>
-
-        <!-- Download Button -->
-        <div class="mt-4">
-            <h4>下載影片:</h4>
-            <a href="{{ result }}" download="auto_subtitles_video.mp4" class="btn btn-success">下載影片</a>
         </div>
     {% endif %}
 {% endblock %}

@@ -1,6 +1,8 @@
 /__pycache__/
 /venv/
 /temp/
+/static/
+
 ffmpeg.exe
 chromedriver.exe
 youtube_data.db

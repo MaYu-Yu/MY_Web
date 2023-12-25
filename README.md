@@ -15,5 +15,8 @@ YouTube Channel Tracker 是一個基於 Flask 的 Web 應用程式，用於管�
 
 1. 安裝相依套件：
    ```pip install -r requirements.txt```
+
+   Download Pytorch 
+   ```pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118```
    Download [ChromeDriver.exe](https://googlechromelabs.github.io/chrome-for-testing/#stable)
    Download [FFmpeg.exe](https://www.gyan.dev/ffmpeg/builds/)

@@ -6,8 +6,9 @@ import pysrt
 import ffmpeg
 import whisper
 
+from my_tool import get_random
 class AutoSubtitles:
-    def __init__(self, output_folder_path="./", model_type="medium"):
+    def __init__(self, output_folder_path="./temp", model_type="medium"):
         """
         初始化 AutoSubtitles 類別
 
@@ -31,7 +32,10 @@ class AutoSubtitles:
         # 載入 Whisper 模型 model_type= tiny < base < small < medium < large
         print("正在加载 Whisper 模型...")  # 載入 Whisper 語音轉文字模型
         self.whisper_model = whisper.load_model(self.model_type, device=self.DEVICE)
+        print(f"成功載入 {self.model_type} 模型")  # 載入 Whisper 語音轉文字模型
         
+        # 亂數
+        self.random_num = get_random()
     def get_langs(self, return_dict=False):
         return GoogleTranslator().get_supported_languages(as_dict=return_dict)
     def is_audio_file(self, file_path):
@@ -53,7 +57,7 @@ class AutoSubtitles:
         if not self.is_audio_file(input_path):
             return None
 
-        output_path = self.output_folder / f"{Path(input_path).stem}.srt"
+        output_path = self.output_folder / f"{next(self.random_num)}.srt"
         print("正在音頻轉文本...")  # 開始從音頻提取文字
         audio = whisper.load_audio(input_path)
         
@@ -61,8 +65,8 @@ class AutoSubtitles:
         result = self.whisper_model.transcribe(audio)
 
         # 存入srt
-        srt_writer = get_writer("srt", str(self.output_folder))  # 提供完整路徑
-        srt_writer(result, output_path)
+        srt_writer = get_writer("srt", str(self.output_folder)) # 檔案類型, 資料夾路徑
+        srt_writer(result, output_path) # 內容, 完整存入路徑
         print(f"SRT 存入: {output_path}")  # SRT 檔案存入位置
         return output_path
 
@@ -79,7 +83,7 @@ class AutoSubtitles:
             str: SRT檔案路徑，翻譯失敗則為None
         """
         if not self.is_srt_file(input_path): return None
-        output_path = str(self.output_folder / f"{Path(input_path).with_suffix('').stem}_{target}.srt")
+        output_path = str(self.output_folder / f"{next(self.random_num)}.srt")
         print("正在翻譯文本...")  # 開始翻譯文字
         subs = pysrt.open(input_path, encoding='utf-8')
         with open(output_path, 'w', encoding='UTF-8') as fw:
@@ -110,13 +114,16 @@ class AutoSubtitles:
             return None
 
 
-        temp_output_path = str(self.output_folder / f"{Path(input_path).stem}_temp.mp4")
+        temp_output_path = str(self.output_folder / f"{next(self.random_num)}.mp4")
         
         print("正在加入字幕...")  # 開始將字幕嵌入音頻
         
         try:
-            # 臨時檔案
+            # 臨時檔案 白癡ffmpeg subtitles會刪除路徑的各種符號，只能使用相對路徑、加上除號
+            srt_path = str(srt_path).replace(":", "/:")
+            srt_path = str(srt_path).replace("\\", "/")
             ffmpeg.input(input_path).output(temp_output_path, vf=f'subtitles={srt_path}').run()
+            
             # 重命名
             shutil.move(temp_output_path, input_path)
 
@@ -138,24 +145,41 @@ class AutoSubtitles:
         返回:
             str: 輸出的視頻檔案路徑，輸出失敗則為None
         """
-        
+        audio_srt_path = None
+        transed_srt_path = None
+        result = None
+
         try:
             audio_srt_path = self.extract_audio_to_srt(audio_path)
             if not audio_srt_path:
                 return None
-            transed_srt_path = auto_subtitles.srt_translate_to_srt(audio_srt_path, source_lang, target_lang)
+
+            transed_srt_path = self.srt_translate_to_srt(audio_srt_path, source_lang, target_lang)
             if not transed_srt_path:
                 return None
-            result = auto_subtitles.add_subtitles(transed_srt_path, audio_path)
-            os.remove(audio_srt_path)
-            os.remove(transed_srt_path)
+
+            result = self.add_subtitles(transed_srt_path, audio_path)
             return result
+
         except Exception as e:
+            print(f"auto_add_subtitles出錯: {e}")
+
+        finally:
+            # 在這個區塊中，無論是否出現錯誤，都會執行以下代碼
             try:
-                os.remove(audio_srt_path)
-                os.remove(transed_srt_path)
+                # 只有在 transed_srt_path 或 audio_srt_path 為 None 時才刪除 result
+                if transed_srt_path is None or audio_srt_path is None:
+                    if result and Path(result).exists():
+                        Path(result).unlink()
+
+                # 刪除指定的檔案
+                for file_path in [transed_srt_path, audio_srt_path]:
+                    if file_path and Path(file_path).exists():
+                        Path(file_path).unlink()
+
             except Exception as e:
-                print(f"刪除TEMP出錯: {e}")
+                print(f"刪除檔案時出錯: {e}")
+
 if __name__ == "__main__":
     auto_subtitles = AutoSubtitles()
     audio_path = "o/test.mp4"
