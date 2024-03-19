@@ -234,8 +234,11 @@ def yt_tracker_sync(folder_path):
                             DOWNLOADER.download([url], playlist_folder_path, audio_only) 
                     except Exception as e:
                         error_message = f"Error downloading {url}: {e}"
-            print("SYNC OK:", pytube_playlist.owner, pytube_playlist.title)
-            synced_list.append(os.path.join(channel_folder_path, playlist_folder_path) )
+            try:     
+                print("SYNC OK:", pytube_playlist.owner, pytube_playlist.title)
+            except IndexError:
+                synced_list.append(os.path.join(channel_folder_path, playlist_folder_path) )
+                continue
             
             if sync_date is None:
                 # 資料庫中不存在該 folder_path，將它加入資料庫
