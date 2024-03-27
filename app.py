@@ -223,7 +223,7 @@ def yt_tracker_sync(folder_path):
                         last_updated_date = pytube_playlist.last_updated
                     
                 last_updated_date = datetime.combine(last_updated_date, time()) if last_updated_date else None
-            except IndexError:
+            except Exception as e:
                 last_updated_date = None
             # 先判斷playlist日期
             if sync_date is None or last_updated_date is None or (sync_date <= last_updated_date):
