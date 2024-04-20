@@ -400,8 +400,7 @@ def yt_tracker_sync_manager():
         else:
             error_message, normal_message = yt_tracker_sync(folder_path)    
 
-    channels = get_data_from_db()
-    return render_template('/yt_tracker/sync_manager.html', error_message=error_message, normal_message=normal_message, channels=channels)
+    return render_template('/yt_tracker/sync_manager.html', error_message=error_message, normal_message=normal_message)
 
 @app.route('/yt_tracker_delete_channel', methods=['GET', 'POST'])
 def yt_tracker_delete_channel():
@@ -448,9 +447,8 @@ def yt_tracker_download_manager():
                         error_message = "Invalid URL."
         except Exception as e:
             traceback.print_exc()  # 將異常的詳細資訊輸出到控制台
-            error_message = str(e)           
-    channels = get_data_from_db()
-    return render_template('/yt_tracker/download_manager.html', error_message=error_message, normal_message=normal_message, channels=channels)
+            error_message = str(e)  
+    return render_template('/yt_tracker/download_manager.html', error_message=error_message, normal_message=normal_message)
 
 @app.route('/yt_tracker_index', methods=['GET', 'POST'])
 def yt_tracker_index():
@@ -487,6 +485,6 @@ if __name__ == "__main__":
     # 初始化下載器
     DOWNLOADER = YouTubeDownloader()
     # 初始化字幕生成模型
-    AUTO_SUBTITLES = AutoSubtitles()
+    # AUTO_SUBTITLES = AutoSubtitles()
     yt_tracker_init_db()
     app.run(debug=True)
