@@ -109,6 +109,9 @@
                             <a class="dropdown-item" href="{{ url_for('yt_tracker_index') }}">
                                 <span class="nav-text">YouTube Tracker</span>
                             </a>
+                            <a class="dropdown-item" href="{{ url_for('manga_downloader_index') }}">
+                                <span class="nav-text">Manga Downloader</span>
+                            </a>
                             <a class="dropdown-item" href="{{ url_for('gadget_index') }}">
                                 <span class="nav-text">My Gadget</span>
                             </a>
@@ -205,14 +208,14 @@
     </div>
     <!-- Loading Spinner Script -->
     <script>
-        function showLoading(event) {
+        function showLoading(formId, event) {
             // 阻止表單的自動提交
             event.preventDefault();
             // 顯示全屏透明背景和載入中的旋轉圖示
             document.getElementById('loading-overlay').classList.remove('d-none');
             // 在延遲後手動提交表單（您可以根據需要調整延遲）
             setTimeout(function() {
-                document.getElementById('InputForm').submit();
+                document.getElementById(formId).submit();
             }, 100);  // 延遲100毫秒，根據需要進行調整
         }
     </script>

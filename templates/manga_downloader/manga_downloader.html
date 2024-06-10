@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}Manga Downloader{% endblock %}
+
+{% block content %}
+    <h1 class="mb-4">Manga Downloader</h1>
+    <form id="InputForm" method="POST">
+        <div class="mb-3">
+            <label for="search_keyword" class="form-label">搜尋漫畫:</label>
+            <input type="text" class="form-control" id="search_keyword" name="search_keyword" placeholder="例如: 間諜過家家">
+        </div>
+        <!-- search Button -->
+        <div style="display: flex; align-items: center;">
+            <button type="submit" class="btn btn-primary" onclick="showLoading('InputForm', event)">搜尋</button>
+            <span style="margin-left: 10px; opacity: 0.3;">加入下載清單/更新漫畫集數</span>
+        </div>
+    </form>
+    {% if result_links %}
+        <form method="POST" id="mangaAddToListForm" action="{{ url_for('manga_add_to_list') }}">
+            <h2 class="mt-4">搜尋結果:</h2>
+                <ul>
+                    {% for title, link in result_links.items() %}
+                        <li>
+                            <input type="checkbox" id="a_{{ title }}" name="add_manga_list" value="{{ title }}">
+                            <label for="{{ title }}">{{ title }}</label>
+                            <input type="hidden" id="{{ title }}_link" name="{{ title }}_link" value="{{ link }}">
+                        </li>
+                    {% endfor %}
+                </ul>
+                <div style="display: flex; align-items: center;">
+                    <button type="submit" class="btn btn-primary" onclick="showLoading('mangaAddToListForm', event)">更新下載清單</button>
+                    <span style="margin-left: 10px; opacity: 0.3;">更新下載清單</span>
+                </div>
+        </form>
+    {% endif %}
+    {% if unfinished_manga %}
+        <form method="POST" id="mangaDownloadForm" action="{{ url_for('manga_download') }}">
+            <h2 class="mt-4">下載清單:</h2>
+                <ul>
+                    {% for title, downloaded_title in unfinished_manga.items() %}
+                        <li>
+                            <input type="checkbox" id="s_{{ title }}" name="selected_manga" value="{{ title }}">
+                            <label>{{ title }} 從 ({{ downloaded_title }}) 開始下載</label>
+                        </li>
+                    {% endfor %}
+                </ul>
+                <div style="display: flex; align-items: center;">
+                    <button type="submit" class="btn btn-primary" onclick="showLoading('mangaDownloadForm', event)">下載</button>
+                    <span style="margin-left: 10px; opacity: 0.3;">接續下載</span>
+                </div>
+        </form>
+    {% endif %}
+{% endblock %}

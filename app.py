@@ -15,7 +15,7 @@ from pytube.exceptions import RegexMatchError
 
 from download import YouTubeDownloader
 from auto_subtitles import AutoSubtitles
-
+from manga_downloader import MangaDownloader
 app = Flask(__name__)
 app.static_folder = 'static'
 # 設定上傳文件的保存目錄
@@ -27,6 +27,49 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 secret_key = secrets.token_hex(16)
 app.secret_key = secret_key 
 
+############################################## manga_downloader ##############################################
+@app.route('/manga_downloader', methods=['GET', 'POST'])
+def manga_downloader():
+    error_message = ''
+    normal_message = ''
+    result_links = {}
+
+    if request.method == 'POST' and 'search_keyword' in request.form:
+        search_keyword = request.form['search_keyword']
+        result_links = MANGA_DOWNLOADER.search_manga(search_keyword)
+        if not result_links: error_message+='沒有搜尋到或者連結網站出問題'
+    # 讀取未完成下載的漫畫
+    unfinished_manga = MANGA_DOWNLOADER.load_history()
+    return render_template(
+        '/manga_downloader/manga_downloader.html',
+        error_message=error_message,
+        normal_message=normal_message,
+        result_links=result_links,
+        unfinished_manga=unfinished_manga
+    )
+@app.route('/manga_download', methods=['POST'])
+def manga_download():
+    selected_titles = request.form.getlist('selected_manga')
+    for title in selected_titles:
+        json_save_path = os.path.join(MANGA_DOWNLOADER.get_json_path(), f"{title}.json")
+        MANGA_DOWNLOADER.download_manga(json_save_path)
+    
+    return redirect(url_for('manga_downloader'))
+
+@app.route('/manga_add_to_list', methods=['POST'])
+def manga_add_to_list():
+    selected_titles = request.form.getlist('add_manga_list')
+    for title in selected_titles:
+        link = request.form.get(f'{title}_link')
+        if link:
+            MANGA_DOWNLOADER.manga_to_json(title, link)
+    return redirect(url_for('manga_downloader'))
+
+@app.route('/manga_downloader_index', methods=['GET', 'POST'])
+def manga_downloader_index():
+    error_message = ''
+    normal_message = ''
+    return render_template('/manga_downloader/index.html', error_message=error_message, normal_message=normal_message)
 ############################################## gadget ##############################################
 @app.route('/auto_subtitles', methods=['GET', 'POST'])
 def auto_subtitles():
@@ -486,5 +529,7 @@ if __name__ == "__main__":
     DOWNLOADER = YouTubeDownloader()
     # 初始化字幕生成模型
     # AUTO_SUBTITLES = AutoSubtitles()
+    # 初始化漫畫下載器
+    MANGA_DOWNLOADER = MangaDownloader()
     yt_tracker_init_db()
     app.run(debug=True)
