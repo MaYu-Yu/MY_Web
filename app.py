@@ -175,7 +175,7 @@ def get_channel_info(url):
         # 打開目標URL
         driver.get(url)
         # 使用顯性等待等待直到 channel_id_element 出現在頁面上
-        channel_id_element_locator = (By.CSS_SELECTOR, '.style-scope.ytd-c4-tabbed-header-renderer')
+        channel_id_element_locator = (By.CSS_SELECTOR, 'span.yt-core-attributed-string.yt-content-metadata-view-model-wiz__metadata-text')
         wait = WebDriverWait(driver, 10)
         channel_id_element = wait.until(EC.presence_of_element_located(channel_id_element_locator))
 
@@ -185,11 +185,11 @@ def get_channel_info(url):
         soup = BeautifulSoup(page_source, 'html.parser')
 
         # 找到 channel_name 的 <yt-formatted-string>
-        channel_name_element = soup.find('yt-formatted-string', {'class': 'style-scope ytd-channel-name'})
+        channel_name_element = soup.find('span', {'class': 'yt-core-attributed-string yt-core-attributed-string--white-space-pre-wrap'})
         channel_name = channel_name_element.get_text(strip=True) if channel_name_element else None
 
         # 找到 channel_id 的 <yt-formatted-string>
-        channel_id_element = soup.find('yt-formatted-string', {'class': 'style-scope ytd-c4-tabbed-header-renderer'})
+        channel_id_element = soup.find('span', {'class': 'yt-core-attributed-string yt-content-metadata-view-model-wiz__metadata-text yt-core-attributed-string--white-space-pre-wrap yt-core-attributed-string--link-inherit-color'})
         channel_id = channel_id_element.get_text(strip=True) if channel_id_element else None
 
         # 找到所有的超連結
@@ -200,7 +200,9 @@ def get_channel_info(url):
 
         # 關閉瀏覽器
         driver.quit()
-
+        print("________________________")
+        print(channel_id, channel_name, playlist_id_list)
+        print("________________________")
         return channel_id, channel_name, playlist_id_list
     except RegexMatchError:
         return None, None, []
